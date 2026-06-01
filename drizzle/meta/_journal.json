@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1776048124173,
+      "tag": "0000_flawless_warstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1776048285529,
+      "tag": "0001_flowery_texas_twister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776647829724,
+      "tag": "0002_majestic_the_order",
+      "breakpoints": true
+    }
+  ]
+}

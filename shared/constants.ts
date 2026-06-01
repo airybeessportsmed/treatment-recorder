@@ -1,0 +1,155 @@
+// ===== Body Parts =====
+export interface BodyPartDef {
+  key: string;
+  label: string;
+  group: string;
+  side?: "left" | "right";
+}
+
+export const BODY_PART_GROUPS = [
+  { key: "head_neck", label: "頭頸部" },
+  { key: "trunk", label: "体幹" },
+  { key: "upper_left", label: "左上肢" },
+  { key: "upper_right", label: "右上肢" },
+  { key: "lower_left", label: "左下肢" },
+  { key: "lower_right", label: "右下肢" },
+] as const;
+
+export const BODY_PARTS: BodyPartDef[] = [
+  // 頭頸部
+  { key: "head", label: "頭", group: "head_neck" },
+  { key: "face", label: "顔", group: "head_neck" },
+  { key: "neck", label: "首/頸椎", group: "head_neck" },
+  // 体幹
+  { key: "chest", label: "胸", group: "trunk" },
+  { key: "upper_back", label: "背中/胸椎", group: "trunk" },
+  { key: "ribs", label: "あばら/肋骨", group: "trunk" },
+  { key: "abdomen", label: "お腹/腹部", group: "trunk" },
+  { key: "lower_back", label: "腰/腰椎", group: "trunk" },
+  { key: "pelvis", label: "骨盤", group: "trunk" },
+  { key: "hip", label: "臀部", group: "trunk" },
+  // 左上肢
+  { key: "left_shoulder", label: "左肩", group: "upper_left", side: "left" },
+  { key: "left_upper_arm", label: "左上腕", group: "upper_left", side: "left" },
+  { key: "left_elbow", label: "左肘", group: "upper_left", side: "left" },
+  { key: "left_forearm", label: "左前腕", group: "upper_left", side: "left" },
+  { key: "left_wrist", label: "左手首", group: "upper_left", side: "left" },
+  { key: "left_hand", label: "左手/指", group: "upper_left", side: "left" },
+  // 右上肢
+  { key: "right_shoulder", label: "右肩", group: "upper_right", side: "right" },
+  { key: "right_upper_arm", label: "右上腕", group: "upper_right", side: "right" },
+  { key: "right_elbow", label: "右肘", group: "upper_right", side: "right" },
+  { key: "right_forearm", label: "右前腕", group: "upper_right", side: "right" },
+  { key: "right_wrist", label: "右手首", group: "upper_right", side: "right" },
+  { key: "right_hand", label: "右手/指", group: "upper_right", side: "right" },
+  // 左下肢
+  { key: "left_hip_joint", label: "左股関節", group: "lower_left", side: "left" },
+  { key: "left_thigh", label: "左もも/大腿", group: "lower_left", side: "left" },
+  { key: "left_knee", label: "左膝", group: "lower_left", side: "left" },
+  { key: "left_shin", label: "左下腿", group: "lower_left", side: "left" },
+  { key: "left_achilles", label: "左アキレス腱", group: "lower_left", side: "left" },
+  { key: "left_ankle", label: "左足首", group: "lower_left", side: "left" },
+  { key: "left_foot", label: "左足/足趾", group: "lower_left", side: "left" },
+  // 右下肢
+  { key: "right_hip_joint", label: "右股関節", group: "lower_right", side: "right" },
+  { key: "right_thigh", label: "右もも/大腿", group: "lower_right", side: "right" },
+  { key: "right_knee", label: "右膝", group: "lower_right", side: "right" },
+  { key: "right_shin", label: "右下腿", group: "lower_right", side: "right" },
+  { key: "right_achilles", label: "右アキレス腱", group: "lower_right", side: "right" },
+  { key: "right_ankle", label: "右足首", group: "lower_right", side: "right" },
+  { key: "right_foot", label: "右足/足趾", group: "lower_right", side: "right" },
+];
+
+// ===== Treatment Types =====
+export interface TreatmentTypeDef {
+  key: string;
+  label: string;
+  icon: string; // lucide icon name
+  category: string;
+}
+
+export const TREATMENT_CATEGORIES = [
+  { key: "manual", label: "手技療法" },
+  { key: "physical", label: "物理療法" },
+  { key: "thermal", label: "温熱・冷却" },
+  { key: "rehab", label: "リハビリ" },
+  { key: "other", label: "その他" },
+] as const;
+
+export const TREATMENT_TYPES: TreatmentTypeDef[] = [
+  // 手技療法
+  { key: "massage", label: "マッサージ", icon: "Hand", category: "manual" },
+  { key: "stretch", label: "ストレッチ", icon: "StretchHorizontal", category: "manual" },
+  { key: "mobilization", label: "モビライゼーション", icon: "Move", category: "manual" },
+  { key: "fascia_release", label: "筋膜リリース", icon: "Layers", category: "manual" },
+  // 物理療法
+  { key: "taping", label: "テーピング", icon: "Bandage", category: "physical" },
+  { key: "acupuncture", label: "鍼", icon: "Syringe", category: "physical" },
+  { key: "moxibustion", label: "灸", icon: "Flame", category: "physical" },
+  { key: "electrotherapy", label: "電気治療", icon: "Zap", category: "physical" },
+  { key: "ultrasound", label: "超音波治療", icon: "Radio", category: "physical" },
+  { key: "radio_wave", label: "ラジオ波", icon: "Wifi", category: "physical" },
+  { key: "shockwave", label: "衝撃波", icon: "Activity", category: "physical" },
+  // 温熱・冷却
+  { key: "icing", label: "アイシング", icon: "Snowflake", category: "thermal" },
+  { key: "ice_bath", label: "アイスバス", icon: "Bath", category: "thermal" },
+  { key: "hot_pack", label: "ホットパック", icon: "ThermometerSun", category: "thermal" },
+  { key: "hot_bath", label: "ホットバス", icon: "Droplets", category: "thermal" },
+  // リハビリ
+  { key: "rehabilitation", label: "リハビリテーション", icon: "Dumbbell", category: "rehab" },
+  { key: "reconditioning", label: "リコンディショニング", icon: "RefreshCw", category: "rehab" },
+  { key: "exercise_therapy", label: "運動療法", icon: "HeartPulse", category: "rehab" },
+  // その他
+  { key: "wound_care", label: "創傷処置", icon: "Cross", category: "other" },
+  { key: "counseling", label: "カウンセリング", icon: "MessageCircle", category: "other" },
+  { key: "evaluation", label: "評価/診断", icon: "ClipboardCheck", category: "other" },
+  { key: "bracing", label: "装具/プロテクション", icon: "Shield", category: "other" },
+  { key: "scar_tissue", label: "スカーティシュー", icon: "Scissors", category: "other" },
+  { key: "rice", label: "RICE処置", icon: "Package", category: "other" },
+  { key: "other", label: "その他", icon: "MoreHorizontal", category: "other" },
+];
+
+// ===== Timing Options =====
+export interface TimingDef {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+export const TIMING_OPTIONS: TimingDef[] = [
+  { key: "before_practice", label: "練習前", icon: "Sunrise" },
+  { key: "during_practice", label: "練習中", icon: "Sun" },
+  { key: "after_practice", label: "練習後", icon: "Sunset" },
+  { key: "before_match", label: "試合前", icon: "Trophy" },
+  { key: "after_match", label: "試合後", icon: "Medal" },
+  { key: "other", label: "その他", icon: "Clock" },
+];
+
+// ===== Duration Presets =====
+export const DURATION_PRESETS = [5, 10, 15, 20, 30, 45, 60] as const;
+
+// ===== Player Positions =====
+export const POSITIONS = [
+  { key: "OH", label: "アウトサイドヒッター" },
+  { key: "MB", label: "ミドルブロッカー" },
+  { key: "S", label: "セッター" },
+  { key: "OP", label: "オポジット" },
+  { key: "L", label: "リベロ" },
+] as const;
+
+// ===== Helpers =====
+export function getBodyPartLabel(key: string): string {
+  return BODY_PARTS.find(b => b.key === key)?.label ?? key;
+}
+
+export function getTreatmentTypeLabel(key: string): string {
+  return TREATMENT_TYPES.find(t => t.key === key)?.label ?? key;
+}
+
+export function getTimingLabel(key: string): string {
+  return TIMING_OPTIONS.find(t => t.key === key)?.label ?? key;
+}
+
+export function getPositionLabel(key: string): string {
+  return POSITIONS.find(p => p.key === key)?.label ?? key;
+}
