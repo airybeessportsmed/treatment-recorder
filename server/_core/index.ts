@@ -42,16 +42,16 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
-  // Bypass authentication and log in as the configured owner
+  // Bypass authentication and log in as the configured owner or selected trainer
   app.get("/api/mock-login", async (req, res) => {
-    const openId = ENV.ownerOpenId || "mock-developer";
-    const name = ENV.ownerName || "開発用テストユーザー";
+    const openIdParam = req.query.openId as string;
+    const openId = openIdParam || ENV.ownerOpenId || "mock-developer";
     try {
       let user = await db.getUserByOpenId(openId);
       if (!user) {
         await db.upsertUser({
           openId,
-          name,
+          name: openIdParam ? (openIdParam.startsWith("trainer-") ? "追加されたトレーナー" : openIdParam) : (ENV.ownerName || "開発用テストユーザー"),
           email: "test@example.com",
           loginMethod: "mock",
           lastSignedIn: new Date(),

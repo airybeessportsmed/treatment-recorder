@@ -15,12 +15,29 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    listTrainers: publicProcedure.query(async () => {
+      return db.getAllUsers();
+    }),
+    createTrainer: publicProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+      }))
+      .mutation(async ({ input }) => {
+        const openId = `trainer-${Math.random().toString(36).substring(2, 15)}`;
+        await db.upsertUser({
+          openId,
+          name: input.name,
+          loginMethod: "mock",
+          lastSignedIn: new Date(),
+        });
+        return { success: true };
+      }),
   }),
 
   // ===== Player Management =====
   player: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      return db.getPlayers(ctx.user.id);
+      return db.getPlayers();
     }),
 
     create: protectedProcedure
@@ -47,7 +64,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const player = await db.getPlayerById(input.id);
-        if (!player || player.createdBy !== ctx.user.id) {
+        if (!player) {
           throw new TRPCError({ code: "NOT_FOUND", message: "選手が見つかりません" });
         }
         const { id, ...data } = input;
@@ -59,7 +76,7 @@ export const appRouter = router({
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
         const player = await db.getPlayerById(input.id);
-        if (!player || player.createdBy !== ctx.user.id) {
+        if (!player) {
           throw new TRPCError({ code: "NOT_FOUND", message: "選手が見つかりません" });
         }
         await db.deletePlayer(input.id);
@@ -81,7 +98,6 @@ export const appRouter = router({
       }).optional())
       .query(async ({ ctx, input }) => {
         return db.getTreatments({
-          createdBy: ctx.user.id,
           playerId: input?.playerId,
           dateFrom: input?.dateFrom,
           dateTo: input?.dateTo,
@@ -96,7 +112,7 @@ export const appRouter = router({
       .input(z.object({ id: z.number().int() }))
       .query(async ({ ctx, input }) => {
         const treatment = await db.getTreatmentById(input.id);
-        if (!treatment || treatment.createdBy !== ctx.user.id) {
+        if (!treatment) {
           throw new TRPCError({ code: "NOT_FOUND", message: "記録が見つかりません" });
         }
         return treatment;
@@ -173,7 +189,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const treatment = await db.getTreatmentById(input.id);
-        if (!treatment || treatment.createdBy !== ctx.user.id) {
+        if (!treatment) {
           throw new TRPCError({ code: "NOT_FOUND", message: "記録が見つかりません" });
         }
         const { id, ...data } = input;
@@ -185,7 +201,7 @@ export const appRouter = router({
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
         const treatment = await db.getTreatmentById(input.id);
-        if (!treatment || treatment.createdBy !== ctx.user.id) {
+        if (!treatment) {
           throw new TRPCError({ code: "NOT_FOUND", message: "記録が見つかりません" });
         }
         await db.deleteTreatment(input.id);

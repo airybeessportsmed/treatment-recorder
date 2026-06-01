@@ -113,11 +113,11 @@ export async function createPlayer(data: Omit<InsertPlayer, "id" | "createdAt" |
   return { id: result[0].insertId };
 }
 
-export async function getPlayers(createdBy: number) {
+export async function getPlayers(createdBy?: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.select().from(players)
-    .where(and(eq(players.createdBy, createdBy), eq(players.isActive, 1)))
+    .where(eq(players.isActive, 1))
     .orderBy(players.number);
 }
 
@@ -163,7 +163,7 @@ export async function getTreatments(filters: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const conditions = [eq(treatments.createdBy, filters.createdBy)];
+  const conditions: any[] = [];
 
   if (filters.playerId) {
     conditions.push(eq(treatments.playerId, filters.playerId));
@@ -264,3 +264,10 @@ export async function deleteTreatment(id: number) {
   if (!db) throw new Error("Database not available");
   await db.delete(treatments).where(eq(treatments.id, id));
 }
+
+export async function getAllUsers() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(users).orderBy(desc(users.id));
+}
+
