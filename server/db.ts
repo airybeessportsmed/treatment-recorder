@@ -268,6 +268,18 @@ export async function deleteTreatment(id: number) {
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(users).orderBy(desc(users.id));
+  return db.select().from(users).where(eq(users.isActive, 1)).orderBy(desc(users.id));
+}
+
+export async function updateUser(openId: string, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ name }).where(eq(users.openId, openId));
+}
+
+export async function deactivateUser(openId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ isActive: 0 }).where(eq(users.openId, openId));
 }
 

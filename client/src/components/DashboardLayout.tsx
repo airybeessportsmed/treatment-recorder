@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { ClipboardPlus, List, Users, LogOut, PanelLeft, Activity, UserPlus, User, ArrowRight } from "lucide-react";
+import { ClipboardPlus, List, Users, LogOut, PanelLeft, Activity, UserPlus, User, ArrowRight, Trash2 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -98,6 +98,38 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  // Profile Edit State
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [editName, setEditName] = useState(user?.name || "");
+
+  useEffect(() => {
+    if (user?.name) {
+      setEditName(user.name);
+    }
+  }, [user?.name]);
+
+  const utils = trpc.useUtils();
+
+  const updateProfileMutation = trpc.auth.updateProfile.useMutation({
+    onSuccess: () => {
+      toast.success("名前を変更しました！");
+      setIsProfileOpen(false);
+      utils.auth.me.invalidate();
+    },
+    onError: (err) => {
+      toast.error(err.message || "更新に失敗しました");
+    }
+  });
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) {
+      toast.error("お名前を入力してください");
+      return;
+    }
+    await updateProfileMutation.mutateAsync({ name: editName.trim() });
+  };
 
   useEffect(() => {
     if (isCollapsed) {
@@ -207,6 +239,13 @@ function DashboardLayoutContent({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
+                  onClick={() => setIsProfileOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span>プロフィール編集</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
@@ -244,6 +283,36 @@ function DashboardLayoutContent({
         )}
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
+
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent className="sm:max-w-md bg-background border rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex gap-2 items-center">
+              <User className="h-5 w-5 text-primary" />
+              プロフィール編集
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name" className="text-xs font-semibold">お名前</Label>
+              <Input
+                id="profile-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="rounded-xl bg-background text-foreground"
+                disabled={updateProfileMutation.isPending}
+              />
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full rounded-xl font-semibold transition-all shadow-md"
+              disabled={updateProfileMutation.isPending}
+            >
+              {updateProfileMutation.isPending ? "保存中..." : "変更を保存"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -275,6 +344,23 @@ function TrainerLoginView() {
       return;
     }
     await createTrainerMutation.mutateAsync({ name: newTrainerName.trim() });
+  };
+
+  const deleteTrainerMutation = trpc.auth.deleteTrainer.useMutation({
+    onSuccess: () => {
+      toast.success("トレーナーを削除しました");
+      utils.auth.listTrainers.invalidate();
+    },
+    onError: (err) => {
+      toast.error(err.message || "削除に失敗しました");
+    }
+  });
+
+  const handleDelete = async (e: React.MouseEvent, openId: string, name: string) => {
+    e.stopPropagation();
+    if (confirm(`${name} さんをメンバー一覧から削除しますか？\n（※過去のトリートメント記録は消えずに残ります）`)) {
+      await deleteTrainerMutation.mutateAsync({ openId });
+    }
   };
 
   const handleLogin = (openId: string) => {
@@ -369,7 +455,17 @@ function TrainerLoginView() {
                       {trainer.openId === "EwkguvxBunXVDhHyyAtN67" ? "OWNER" : "TRAINER"}
                     </p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-violet-400 group-hover:translate-x-1 transition-all shrink-0" />
+                  {trainer.openId !== "EwkguvxBunXVDhHyyAtN67" ? (
+                    <button
+                      onClick={(e) => handleDelete(e, trainer.openId, trainer.name || "トレーナー")}
+                      className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-colors shrink-0"
+                      title="トレーナーを削除"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-violet-400 group-hover:translate-x-1 transition-all shrink-0" />
+                  )}
                 </button>
               ))}
             </div>

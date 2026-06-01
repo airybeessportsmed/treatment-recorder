@@ -32,6 +32,20 @@ export const appRouter = router({
         });
         return { success: true };
       }),
+    updateProfile: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateUser(ctx.user.openId, input.name);
+        return { success: true };
+      }),
+    deleteTrainer: publicProcedure
+      .input(z.object({ openId: z.string() }))
+      .mutation(async ({ input }) => {
+        await db.deactivateUser(input.openId);
+        return { success: true };
+      }),
   }),
 
   // ===== Player Management =====
