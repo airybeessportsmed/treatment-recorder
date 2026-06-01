@@ -11,6 +11,8 @@ import * as db from "../db";
 import { sdk } from "./sdk";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
+import { ENV } from "./env";
+
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -40,15 +42,16 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
-  // Bypass authentication for local development when env vars are missing
+  // Bypass authentication and log in as the configured owner
   app.get("/api/mock-login", async (req, res) => {
-    const openId = "mock-developer";
+    const openId = ENV.ownerOpenId || "mock-developer";
+    const name = ENV.ownerName || "開発用テストユーザー";
     try {
       let user = await db.getUserByOpenId(openId);
       if (!user) {
         await db.upsertUser({
           openId,
-          name: "開発用テストユーザー",
+          name,
           email: "test@example.com",
           loginMethod: "mock",
           lastSignedIn: new Date(),
