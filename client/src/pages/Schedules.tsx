@@ -70,6 +70,33 @@ export default function Schedules() {
     dateTo: dateRange[dateRange.length - 1],
   });
 
+  // Calculate 14 days date range for statistics (from -14 to -1 relative to today)
+  const statsDateRange = useMemo(() => {
+    const dates = [];
+    const baseDate = new Date();
+    for (let i = 14; i >= 1; i--) {
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() - i);
+      const offset = d.getTimezoneOffset();
+      const localD = new Date(d.getTime() - (offset * 60 * 1000));
+      dates.push(localD.toISOString().split("T")[0]);
+    }
+    return dates;
+  }, []);
+
+  // Load schedules for the 14 days stats range
+  const { data: statsSchedulesData, isLoading: statsSchedulesLoading } = trpc.schedule.list.useQuery({
+    dateFrom: statsDateRange[0],
+    dateTo: statsDateRange[statsDateRange.length - 1],
+  });
+
+  // Load treatments for the 14 days stats range
+  const { data: statsTreatmentsData, isLoading: statsTreatmentsLoading } = trpc.treatment.list.useQuery({
+    dateFrom: new Date(statsDateRange[0] + "T00:00:00.000Z"),
+    dateTo: new Date(statsDateRange[statsDateRange.length - 1] + "T23:59:59.999Z"),
+    limit: 500,
+  });
+
   // Current schedule form state
   const [practiceAm, setPracticeAm] = useState<string>("");
   const [practicePm, setPracticePm] = useState<string>("");
@@ -84,6 +111,160 @@ export default function Schedules() {
     }
     return map;
   }, [schedulesData]);
+
+  // Color configuration mapping for trainers
+  const trainerColorMap = useMemo(() => {
+    const colors = [
+      { name: "red", bgStrong: "bg-red-500", bgLight: "bg-red-200 dark:bg-red-950/40", text: "text-red-700 dark:text-red-300", bgBadge: "bg-red-500 text-white" },
+      { name: "emerald", bgStrong: "bg-emerald-500", bgLight: "bg-emerald-200 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", bgBadge: "bg-emerald-500 text-white" },
+      { name: "amber", bgStrong: "bg-amber-500", bgLight: "bg-amber-200 dark:bg-amber-950/40", text: "text-amber-700 dark:text-amber-300", bgBadge: "bg-amber-500 text-black font-bold" },
+      { name: "blue", bgStrong: "bg-blue-500", bgLight: "bg-blue-200 dark:bg-blue-950/40", text: "text-blue-700 dark:text-blue-300", bgBadge: "bg-blue-500 text-white" },
+      { name: "indigo", bgStrong: "bg-indigo-500", bgLight: "bg-indigo-200 dark:bg-indigo-950/40", text: "text-indigo-700 dark:text-indigo-300", bgBadge: "bg-indigo-500 text-white" },
+      { name: "violet", bgStrong: "bg-violet-500", bgLight: "bg-violet-200 dark:bg-violet-950/40", text: "text-violet-700 dark:text-violet-300", bgBadge: "bg-violet-500 text-white" },
+    ];
+
+    const map: Record<string, typeof colors[0]> = {};
+    const standardTrainers = ["Miya", "Shima", "Toshi"];
+    
+    standardTrainers.forEach((name, idx) => {
+      map[name] = colors[idx];
+    });
+
+    if (trainers) {
+      trainers.forEach((t, index) => {
+        const name = t.name || "";
+        if (standardTrainers.includes(name)) return; // skip fixed
+        const lower = name.toLowerCase();
+        if (lower.includes("miya")) {
+          map[name] = colors[0];
+        } else if (lower.includes("shima")) {
+          map[name] = colors[1];
+        } else if (lower.includes("toshi")) {
+          map[name] = colors[2];
+        } else {
+          map[name] = colors[(index + 3) % colors.length];
+        }
+      });
+    }
+
+    return map;
+  }, [trainers]);
+
+  // Aggregate matrix statistics for the 14-day heatmap
+  const statsMatrix = useMemo(() => {
+    if (!uniquePlayers || !statsDateRange) return { rows: [], dateTotals: {}, activeTrainers: ["Miya", "Shima", "Toshi"] };
+
+    // 1. Build schedule assignments lookup (date -> playerNumber -> trainerName)
+    const schedLookup: Record<string, Record<number, string>> = {};
+    statsDateRange.forEach(date => {
+      schedLookup[date] = {};
+    });
+
+    if (statsSchedulesData) {
+      statsSchedulesData.forEach(s => {
+        const assignments = parseAssignmentsText(s.assignments);
+        assignments.forEach(row => {
+          row.playerNumbers.forEach(num => {
+            if (schedLookup[s.date]) {
+              schedLookup[s.date][num] = row.trainerName;
+            }
+          });
+        });
+      });
+    }
+
+    // 2. Build actual treatment lookup (date -> playerNumber -> trainerName)
+    const actualLookup: Record<string, Record<number, string>> = {};
+    statsDateRange.forEach(date => {
+      actualLookup[date] = {};
+    });
+
+    if (statsTreatmentsData && statsTreatmentsData.rows) {
+      statsTreatmentsData.rows.forEach(r => {
+        const dateStr = new Date(r.treatmentDate).toISOString().split("T")[0];
+        const player = players?.find(p => p.id === r.playerId);
+        if (dateStr && player && actualLookup[dateStr]) {
+          actualLookup[dateStr][player.number] = (r as any).createdByName || "不明";
+        }
+      });
+    }
+
+    // 3. Define active trainers list for column counts (Miya, Shima, Toshi, etc.)
+    const activeTrainers = ["Miya", "Shima", "Toshi"];
+    if (trainers) {
+      trainers.forEach(t => {
+        if (t.name && !activeTrainers.includes(t.name)) {
+          activeTrainers.push(t.name);
+        }
+      });
+    }
+
+    // 4. Compute row data for each player
+    const rows = uniquePlayers.map(player => {
+      const cells = statsDateRange.map(date => {
+        const scheduledTrainer = schedLookup[date]?.[player.number] || null;
+        const actualTrainer = actualLookup[date]?.[player.number] || null;
+        return {
+          date,
+          scheduledTrainer,
+          actualTrainer,
+          hasScheduled: !!scheduledTrainer,
+          hasActual: !!actualTrainer,
+        };
+      });
+
+      // Scheduled counts by trainer for this player
+      const scheduledCounts: Record<string, number> = {};
+      activeTrainers.forEach(t => {
+        scheduledCounts[t] = 0;
+      });
+      cells.forEach(c => {
+        if (c.scheduledTrainer && scheduledCounts[c.scheduledTrainer] !== undefined) {
+          scheduledCounts[c.scheduledTrainer]++;
+        }
+      });
+
+      // Total actual treatment count for this player within 14 days (scheduled + unscheduled)
+      let totalActualCount = 0;
+      if (statsTreatmentsData && statsTreatmentsData.rows) {
+        totalActualCount = statsTreatmentsData.rows.filter(r => {
+          const dateStr = new Date(r.treatmentDate).toISOString().split("T")[0];
+          return r.playerId === player.id && statsDateRange.includes(dateStr);
+        }).length;
+      }
+
+      return {
+        player,
+        cells,
+        scheduledCounts,
+        totalActualCount,
+      };
+    });
+
+    // 5. Compute date totals (bottom row of table: date -> trainer -> count)
+    const dateTotals: Record<string, Record<string, number>> = {};
+    activeTrainers.forEach(t => {
+      dateTotals[t] = {};
+      statsDateRange.forEach(date => {
+        dateTotals[t][date] = 0;
+      });
+    });
+
+    statsDateRange.forEach(date => {
+      rows.forEach(r => {
+        const cell = r.cells.find(c => c.date === date);
+        if (cell && cell.scheduledTrainer && dateTotals[cell.scheduledTrainer]) {
+          dateTotals[cell.scheduledTrainer][date]++;
+        }
+      });
+    });
+
+    return {
+      rows,
+      dateTotals,
+      activeTrainers,
+    };
+  }, [uniquePlayers, statsDateRange, statsSchedulesData, statsTreatmentsData, trainers, players]);
 
   // Parse text format "TrainerName #14,#13" into structured array
   const parseAssignmentsText = (text: string | null | undefined): Array<{ trainerName: string; playerNumbers: number[] }> => {
@@ -627,6 +808,186 @@ export default function Schedules() {
           </Card>
         </div>
       </div>
+
+      {/* 📊 過去14日間のトリートメント集計ヒートマップ */}
+      <Card className="shadow-lg border border-border/80 overflow-hidden relative mt-6">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+        <CardHeader className="pb-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/20">
+          <div>
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+              <Users className="h-5 w-5 text-indigo-500" />
+              過去14日間のトリートメント集計・ヒートマップ
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              今日から過去14日間の予定（濃い色）と、予定になかったが実際に行った治療（薄い色）をスタッフ別に一覧・集計します。
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground bg-background px-3 py-2 rounded-xl border">
+            <span className="font-semibold text-foreground uppercase tracking-wider block w-full mb-1 text-[9px]">凡例</span>
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="h-3 w-5 bg-red-500 rounded border shadow-sm shrink-0" />
+              <span>Miya (予定)</span>
+            </div>
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="h-3 w-5 bg-red-200 dark:bg-red-950/40 rounded border shrink-0" />
+              <span>Miya (予定外)</span>
+            </div>
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="h-3 w-5 bg-emerald-500 rounded border shadow-sm shrink-0" />
+              <span>Shima (予定)</span>
+            </div>
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="h-3 w-5 bg-emerald-200 dark:bg-emerald-950/40 rounded border shrink-0" />
+              <span>Shima (予定外)</span>
+            </div>
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="h-3 w-5 bg-amber-500 rounded border shadow-sm shrink-0" />
+              <span>Toshi (予定)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-5 bg-amber-200 dark:bg-amber-950/40 rounded border shrink-0" />
+              <span>Toshi (予定外)</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {statsSchedulesLoading || statsTreatmentsLoading || playersLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground font-semibold">データを集計中...</p>
+            </div>
+          ) : statsMatrix.rows.length === 0 ? (
+            <div className="py-12 text-center">
+              <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">表示する選手またはデータがありません</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-[11px] border-collapse min-w-[980px]">
+                <thead>
+                  {/* ヘッダー1行目：選手、日付相対、トレーナー名、合計 */}
+                  <tr className="bg-muted/40 border-b border-border/80 text-muted-foreground font-bold text-center">
+                    <th className="py-2.5 px-3 text-left w-36 bg-background/50 border-r shrink-0">選手</th>
+                    {statsDateRange.map((_, idx) => (
+                      <th key={idx} className="p-1.5 text-center min-w-[32px] font-mono border-r">
+                        -{14 - idx}
+                      </th>
+                    ))}
+                    {statsMatrix.activeTrainers.map(t => {
+                      const colorConfig = trainerColorMap[t];
+                      return (
+                        <th key={t} className={`p-1.5 text-center min-w-[48px] border-r font-extrabold ${colorConfig?.text}`}>
+                          {t}
+                        </th>
+                      );
+                    })}
+                    <th className="p-2 w-16 text-center font-extrabold text-foreground bg-accent/20">合計</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* 選手行のループ */}
+                  {statsMatrix.rows.map(({ player, cells, scheduledCounts, totalActualCount }) => (
+                    <tr key={player.id} className="border-b hover:bg-muted/5 transition-all text-center">
+                      {/* 選手名と背番号 */}
+                      <td className="py-2 px-3 text-left font-bold text-foreground bg-background/30 border-r flex items-center gap-1.5 truncate h-[38px]">
+                        <span className="text-[10px] font-mono font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-md min-w-[24px] text-center shrink-0">
+                          #{player.number}
+                        </span>
+                        <span className="truncate text-xs">{player.name}</span>
+                      </td>
+
+                      {/* 14日間のセル */}
+                      {cells.map((cell, idx) => {
+                        let bgColorClass = "bg-transparent hover:bg-muted/10";
+                        let titleText = `${cell.date}`;
+                        
+                        // 予定と実績のマッピングから色を決定
+                        const trainerName = cell.scheduledTrainer || cell.actualTrainer;
+                        if (trainerName) {
+                          const config = trainerColorMap[trainerName];
+                          if (config) {
+                            if (cell.hasScheduled) {
+                              bgColorClass = config.bgStrong + " text-white shadow-sm ring-1 ring-white/10";
+                              titleText += ` - ${trainerName} (予定あり)`;
+                            } else if (cell.hasActual) {
+                              bgColorClass = config.bgLight + ` ${config.text} border border-dashed`;
+                              titleText += ` - ${trainerName} (予定外実績)`;
+                            }
+                          }
+                        }
+
+                        return (
+                          <td
+                            key={idx}
+                            title={titleText}
+                            className={`p-1 border-r relative h-[38px] transition-all font-bold ${bgColorClass}`}
+                          >
+                            {/* セル内の中身は空、またはツールチップで情報を提示 */}
+                          </td>
+                        );
+                      })}
+
+                      {/* トレーナーごとのスケジュール（予定）アサインカウント */}
+                      {statsMatrix.activeTrainers.map(t => {
+                        const count = scheduledCounts[t] || 0;
+                        const config = trainerColorMap[t];
+                        return (
+                          <td key={t} className={`p-1.5 border-r font-mono font-bold text-center ${count > 0 ? `${config?.text} bg-muted/10` : 'text-muted-foreground/30'}`}>
+                            {count > 0 ? count : "-"}
+                          </td>
+                        );
+                      })}
+
+                      {/* すべての治療実施回数の合計 */}
+                      <td className="p-1.5 font-mono font-extrabold text-center bg-accent/15 text-foreground text-xs">
+                        {totalActualCount}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {/* 下側の集計：トレーナーごとのアサイン数合計行 */}
+                  {statsMatrix.activeTrainers.map(t => {
+                    const config = trainerColorMap[t];
+                    const dateTotalsForTrainer = statsMatrix.dateTotals[t] || {};
+                    const totalScheduledAllPlayers = Object.values(dateTotalsForTrainer).reduce((sum, c) => sum + c, 0);
+
+                    return (
+                      <tr key={t} className="bg-muted/20 border-t font-semibold text-center h-[32px]">
+                        {/* 左端：トレーナー名 */}
+                        <td className="py-1 px-3 text-left border-r bg-background/50 h-[32px] flex items-center shrink-0">
+                          <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-extrabold uppercase shrink-0 ${config?.bgBadge}`}>
+                            {t}
+                          </span>
+                        </td>
+
+                        {/* 各日付の合計値 */}
+                        {statsDateRange.map((date, idx) => {
+                          const val = dateTotalsForTrainer[date] || 0;
+                          return (
+                            <td key={idx} className={`p-1 border-r font-mono text-[10px] text-center ${val > 0 ? 'font-extrabold bg-muted/30 text-foreground' : 'text-muted-foreground/30'}`}>
+                              {val > 0 ? val : ""}
+                            </td>
+                          );
+                        })}
+
+                        {/* 空白セル（右側トレーナー列）と、アサイン総計 */}
+                        {statsMatrix.activeTrainers.map(oth => (
+                          <td key={oth} className="p-1 border-r bg-background/20" />
+                        ))}
+
+                        {/* そのトレーナーの14日間スケジュール全選手合計 */}
+                        <td className={`p-1.5 font-mono font-bold text-center ${config?.text} bg-accent/5`}>
+                          {totalScheduledAllPlayers > 0 ? totalScheduledAllPlayers : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
