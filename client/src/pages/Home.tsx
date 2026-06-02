@@ -186,23 +186,22 @@ export default function Home() {
           }
 
           return (
-            <div key={idx} className="bg-accent/20 border border-accent-foreground/5 p-1.5 rounded-lg text-left space-y-1">
-              <div className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-1 truncate">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+            <div key={idx} className="bg-accent/20 border border-accent-foreground/5 p-1 rounded text-left space-y-0.5">
+              <div className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-0.5 truncate">
+                <span className="h-1 w-1 rounded-full bg-indigo-400 shrink-0" />
                 {trainerName}
               </div>
               <div className="flex flex-wrap gap-0.5">
                 {numbers.length > 0 ? (
                   numbers.map((num) => {
-                    const name = playerNumberMap[num];
                     return (
-                      <Badge key={num} variant="outline" className="text-[8px] px-1 py-0 font-medium bg-background border hover:bg-accent/40 text-foreground transition-all shrink-0">
-                        #{num} {name ? `(${name})` : ""}
+                      <Badge key={num} variant="outline" className="text-[7.5px] px-0.5 py-0 font-bold bg-background border hover:bg-accent/40 text-foreground transition-all shrink-0">
+                        #{num}
                       </Badge>
                     );
                   })
                 ) : (
-                  <span className="text-[9px] text-muted-foreground truncate">{playerText}</span>
+                  <span className="text-[8px] text-muted-foreground truncate">{playerText}</span>
                 )}
               </div>
             </div>

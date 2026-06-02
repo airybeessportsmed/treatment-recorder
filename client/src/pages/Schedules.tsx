@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Settings, Star } from "lucide-react";
+import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Star } from "lucide-react";
 
 const SCHEDULE_OPTIONS = [
   "Ball",
@@ -38,6 +38,17 @@ export default function Schedules() {
 
   // Visual state for assignments: Array<{ trainerName: string; playerNumbers: number[] }>
   const [assignmentRows, setAssignmentRows] = useState<Array<{ trainerName: string; playerNumbers: number[] }>>([]);
+
+  // Filter unique players by number to prevent double entries (e.g. Haruna Yamashita duplicate data bug)
+  const uniquePlayers = useMemo(() => {
+    if (!players) return [];
+    const seen = new Set<number>();
+    return players.filter(p => {
+      const duplicate = seen.has(p.number);
+      seen.add(p.number);
+      return !duplicate;
+    });
+  }, [players]);
 
   // Calculate standard 7 days date range from selectedDate for preview list
   const dateRange = useMemo(() => {
@@ -511,8 +522,8 @@ export default function Schedules() {
                             <div className="flex flex-wrap gap-1.5">
                               {playersLoading ? (
                                 <span className="text-xs text-muted-foreground italic">選手データを読み込み中...</span>
-                              ) : players && players.length > 0 ? (
-                                players.map((p) => {
+                              ) : uniquePlayers && uniquePlayers.length > 0 ? (
+                                uniquePlayers.map((p) => {
                                   const isAssigned = row.playerNumbers.includes(p.number);
                                   return (
                                     <button
