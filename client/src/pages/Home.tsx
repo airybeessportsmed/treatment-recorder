@@ -160,17 +160,17 @@ export default function Home() {
 
   // Parser helper to convert trainer assignments into rich badges with names
   const parseAssignments = (assignmentsText: string | null | undefined) => {
-    if (!assignmentsText) return <p className="text-[10px] text-muted-foreground italic mt-1.5">予定なし</p>;
+    if (!assignmentsText) return <p className="text-[10px] text-muted-foreground italic mt-1">予定なし</p>;
     const lines = assignmentsText.split("\n").map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return <p className="text-[10px] text-muted-foreground italic mt-1.5">予定なし</p>;
+    if (lines.length === 0) return <p className="text-[10px] text-muted-foreground italic mt-1">予定なし</p>;
     
     return (
-      <div className="space-y-1.5 mt-2 overflow-y-auto max-h-[100px] pr-0.5 custom-scrollbar">
+      <div className="space-y-0.5 mt-0.5 overflow-y-auto max-h-[115px] pr-0.5 custom-scrollbar">
         {lines.map((line, idx) => {
           const match = line.match(/^([^#\s：:]+)(?:\s*[:：]\s*|\s+)?(.*)$/);
           if (!match) {
             return (
-              <div key={idx} className="text-[10px] text-muted-foreground bg-accent/20 px-1.5 py-0.5 rounded">
+              <div key={idx} className="text-[10px] text-muted-foreground bg-accent/20 px-1 py-0.5 rounded">
                 {line}
               </div>
             );
@@ -186,7 +186,7 @@ export default function Home() {
           }
 
           return (
-            <div key={idx} className="bg-accent/20 border border-accent-foreground/5 p-1 rounded text-left space-y-0.5">
+            <div key={idx} className="bg-accent/20 border border-accent-foreground/5 py-0.5 px-1 rounded text-left space-y-0.5">
               <div className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-0.5 truncate">
                 <span className="h-1 w-1 rounded-full bg-indigo-400 shrink-0" />
                 {trainerName}
@@ -503,14 +503,13 @@ export default function Home() {
                 予定を編集する
               </Button>
             </CardHeader>
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               {dashboardSchedulesLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground ml-2">スケジュールを読み込み中...</span>
+                <div className="h-[200px] flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
                   {dashboardDateRange.map((dateStr) => {
                     const schedule = dashboardSchedulesMap[dateStr];
                     
@@ -525,7 +524,7 @@ export default function Home() {
                       <div
                         key={dateStr}
                         className={cn(
-                          "rounded-2xl p-3 border transition-all flex flex-col justify-between min-h-[220px] bg-card relative shadow-sm",
+                          "rounded-2xl p-1.5 border transition-all flex flex-col justify-between min-h-[185px] bg-card relative shadow-sm",
                           isToday
                             ? "border-primary bg-primary/[0.02] shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)] ring-1 ring-primary/30"
                             : "border-border/60 hover:border-primary/30"
@@ -537,9 +536,9 @@ export default function Home() {
                             今日
                           </div>
                         )}
-
+ 
                         {/* 日付ヘッダー */}
-                        <div className="text-center pb-2 border-b border-border/40">
+                        <div className="text-center pb-0.5 border-b border-border/40">
                           <p className={cn(
                             "text-xs font-bold font-mono tracking-tight",
                             isToday ? "text-primary font-extrabold" : "text-foreground"
@@ -547,9 +546,9 @@ export default function Home() {
                             {formatDateLabel(dateStr)}
                           </p>
                         </div>
-
+ 
                         {/* 練習予定 (AM/PM) */}
-                        <div className="space-y-1.5 py-3 border-b border-dashed border-border/40">
+                        <div className="space-y-0.5 py-1 border-b border-dashed border-border/40">
                           <div className="flex items-center justify-between text-[10px]">
                             <span className="text-muted-foreground flex items-center gap-1 font-medium">
                               <Sun className="h-3 w-3 text-amber-500" />
@@ -569,10 +568,9 @@ export default function Home() {
                             </span>
                           </div>
                         </div>
-
+ 
                         {/* トリートメント担当予定 */}
-                        <div className="flex-1 pt-2 flex flex-col justify-start min-h-[100px]">
-                          <p className="text-[9px] font-bold text-muted-foreground tracking-wider uppercase">トリートメント</p>
+                        <div className="flex-1 pt-1 flex flex-col justify-start min-h-[90px]">
                           {parseAssignments(schedule?.assignments)}
                         </div>
                       </div>
