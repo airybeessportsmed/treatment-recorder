@@ -66,6 +66,7 @@ import {
   StretchHorizontal,
   Sunrise,
   Sun,
+  Moon,
   Sunset,
   Trophy,
   Medal,
