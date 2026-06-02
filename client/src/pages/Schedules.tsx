@@ -16,6 +16,33 @@ const SCHEDULE_OPTIONS = [
   "Other"
 ];
 
+// Parse text format "TrainerName #14,#13" into structured array
+const parseAssignmentsText = (text: string | null | undefined): Array<{ trainerName: string; playerNumbers: number[] }> => {
+  if (!text) return [];
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  return lines.map(line => {
+    const match = line.match(/^([^#\s：:]+)(?:\s*[:：]\s*|\s+)?(.*)$/);
+    if (!match) return { trainerName: line, playerNumbers: [] };
+    const trainerName = match[1];
+    const playerText = match[2];
+    const numbers: number[] = [];
+    const regex = /#(\d+)/g;
+    let m;
+    while ((m = regex.exec(playerText)) !== null) {
+      numbers.push(parseInt(m[1], 10));
+    }
+    return { trainerName, playerNumbers: numbers };
+  });
+};
+
+// Convert structured array back to text format for saving
+const serializeAssignments = (rows: Array<{ trainerName: string; playerNumbers: number[] }>): string => {
+  return rows
+    .filter(row => row.trainerName)
+    .map(row => `${row.trainerName} ${row.playerNumbers.map(n => `#${n}`).join(",")}`)
+    .join("\n");
+};
+
 export default function Schedules() {
   const utils = trpc.useUtils();
 
@@ -266,32 +293,7 @@ export default function Schedules() {
     };
   }, [uniquePlayers, statsDateRange, statsSchedulesData, statsTreatmentsData, trainers, players]);
 
-  // Parse text format "TrainerName #14,#13" into structured array
-  const parseAssignmentsText = (text: string | null | undefined): Array<{ trainerName: string; playerNumbers: number[] }> => {
-    if (!text) return [];
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-    return lines.map(line => {
-      const match = line.match(/^([^#\s：:]+)(?:\s*[:：]\s*|\s+)?(.*)$/);
-      if (!match) return { trainerName: line, playerNumbers: [] };
-      const trainerName = match[1];
-      const playerText = match[2];
-      const numbers: number[] = [];
-      const regex = /#(\d+)/g;
-      let m;
-      while ((m = regex.exec(playerText)) !== null) {
-        numbers.push(parseInt(m[1], 10));
-      }
-      return { trainerName, playerNumbers: numbers };
-    });
-  };
 
-  // Convert structured array back to text format for saving
-  const serializeAssignments = (rows: Array<{ trainerName: string; playerNumbers: number[] }>): string => {
-    return rows
-      .filter(row => row.trainerName)
-      .map(row => `${row.trainerName} ${row.playerNumbers.map(n => `#${n}`).join(",")}`)
-      .join("\n");
-  };
 
   // Handle selectedDate changes to populate form fields & set default trainers
   useMemo(() => {
