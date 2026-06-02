@@ -1,12 +1,20 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Save, Users, Clock, AlertCircle, ArrowLeft, Sun, Moon } from "lucide-react";
+import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, X } from "lucide-react";
+
+const SCHEDULE_OPTIONS = [
+  "Ball",
+  "S&C(WT)",
+  "S&C(Floor)",
+  "OFF",
+  "EVENT",
+  "Free",
+  "Other"
+];
 
 export default function Schedules() {
   const utils = trpc.useUtils();
@@ -19,8 +27,17 @@ export default function Schedules() {
     return localDate.toISOString().split("T")[0];
   });
 
-  // Load existing players list for the helper panel
+  // Load existing players list
   const { data: players, isLoading: playersLoading } = trpc.player.list.useQuery();
+
+  // Load registered trainers (users)
+  const { data: trainers, isLoading: trainersLoading } = trpc.auth.listTrainers.useQuery();
+
+  // Selected trainer for adding to assignment
+  const [newTrainerName, setNewTrainerName] = useState<string>("");
+
+  // Visual state for assignments: Array<{ trainerName: string; playerNumbers: number[] }>
+  const [assignmentRows, setAssignmentRows] = useState<Array<{ trainerName: string; playerNumbers: number[] }>>([]);
 
   // Calculate standard 7 days date range from selectedDate for preview list
   const dateRange = useMemo(() => {
@@ -37,7 +54,7 @@ export default function Schedules() {
   }, [selectedDate]);
 
   // Load schedules for the 7 days range
-  const { data: schedulesData, isLoading: schedulesLoading } = trpc.schedule.list.useQuery({
+  const { data: schedulesData } = trpc.schedule.list.useQuery({
     dateFrom: dateRange[0],
     dateTo: dateRange[dateRange.length - 1],
   });
@@ -45,7 +62,6 @@ export default function Schedules() {
   // Current schedule form state
   const [practiceAm, setPracticeAm] = useState<string>("");
   const [practicePm, setPracticePm] = useState<string>("");
-  const [assignments, setAssignments] = useState<string>("");
 
   // Map Loaded Schedule Data
   const schedulesMap = useMemo(() => {
@@ -58,17 +74,45 @@ export default function Schedules() {
     return map;
   }, [schedulesData]);
 
+  // Parse text format "TrainerName #14,#13" into structured array
+  const parseAssignmentsText = (text: string | null | undefined): Array<{ trainerName: string; playerNumbers: number[] }> => {
+    if (!text) return [];
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    return lines.map(line => {
+      const match = line.match(/^([^#\s：:]+)(?:\s*[:：]\s*|\s+)?(.*)$/);
+      if (!match) return { trainerName: line, playerNumbers: [] };
+      const trainerName = match[1];
+      const playerText = match[2];
+      const numbers: number[] = [];
+      const regex = /#(\d+)/g;
+      let m;
+      while ((m = regex.exec(playerText)) !== null) {
+        numbers.push(parseInt(m[1], 10));
+      }
+      return { trainerName, playerNumbers: numbers };
+    });
+  };
+
+  // Convert structured array back to text format for saving
+  const serializeAssignments = (rows: Array<{ trainerName: string; playerNumbers: number[] }>): string => {
+    return rows
+      .filter(row => row.trainerName)
+      .map(row => `${row.trainerName} ${row.playerNumbers.map(n => `#${n}`).join(",")}`)
+      .join("\n");
+  };
+
   // Handle selectedDate changes to populate form fields
   useMemo(() => {
     const current = schedulesMap[selectedDate];
     if (current) {
       setPracticeAm(current.practiceAm || "");
       setPracticePm(current.practicePm || "");
-      setAssignments(current.assignments || "");
+      const parsed = parseAssignmentsText(current.assignments);
+      setAssignmentRows(parsed);
     } else {
       setPracticeAm("");
       setPracticePm("");
-      setAssignments("");
+      setAssignmentRows([]);
     }
   }, [selectedDate, schedulesMap]);
 
@@ -87,42 +131,70 @@ export default function Schedules() {
     e.preventDefault();
     saveSchedule.mutate({
       date: selectedDate,
-      practiceAm: practiceAm.trim() || null,
-      practicePm: practicePm.trim() || null,
-      assignments: assignments.trim() || null,
+      practiceAm: practiceAm || null,
+      practicePm: practicePm || null,
+      assignments: serializeAssignments(assignmentRows) || null,
     });
   };
 
-  // Click handler to insert player number at the cursor position
-  const handleInsertPlayer = (number: number) => {
-    const textarea = document.getElementById("assignments-input") as HTMLTextAreaElement;
-    if (!textarea) return;
+  // Handler to add a trainer row
+  const handleAddTrainer = () => {
+    if (!newTrainerName) {
+      toast.error("スタッフを選択してください");
+      return;
+    }
+    // Prevent duplicates
+    if (assignmentRows.some(row => row.trainerName === newTrainerName)) {
+      toast.error("このスタッフは既に追加されています");
+      return;
+    }
+    setAssignmentRows(prev => [...prev, { trainerName: newTrainerName, playerNumbers: [] }]);
+    setNewTrainerName("");
+  };
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const insertText = `#${number}`;
+  // Handler to remove a trainer row
+  const handleRemoveTrainerRow = (trainerName: string) => {
+    setAssignmentRows(prev => prev.filter(row => row.trainerName !== trainerName));
+  };
 
-    const newText = text.substring(0, start) + insertText + text.substring(end);
-    setAssignments(newText);
+  // Handler to add a player to a trainer
+  const handleAddPlayerToTrainer = (trainerName: string, playerNumber: number) => {
+    setAssignmentRows(prev =>
+      prev.map(row => {
+        if (row.trainerName === trainerName) {
+          if (row.playerNumbers.includes(playerNumber)) {
+            toast.error("この選手は既にこのスタッフに割り当てられています");
+            return row;
+          }
+          return { ...row, playerNumbers: [...row.playerNumbers, playerNumber] };
+        }
+        return row;
+      })
+    );
+  };
 
-    // Refocus and place cursor after inserted text
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + insertText.length, start + insertText.length);
-    }, 10);
+  // Handler to remove a player from a trainer
+  const handleRemovePlayerFromTrainer = (trainerName: string, playerNumber: number) => {
+    setAssignmentRows(prev =>
+      prev.map(row => {
+        if (row.trainerName === trainerName) {
+          return { ...row, playerNumbers: row.playerNumbers.filter(num => num !== playerNumber) };
+        }
+        return row;
+      })
+    );
   };
 
   // Quick template helpers
   const handleApplyTemplate = (type: "SC_BALL" | "OFF" | "MATCH") => {
     if (type === "SC_BALL") {
-      setPracticeAm("S&C");
+      setPracticeAm("S&C(WT)");
       setPracticePm("Ball");
     } else if (type === "OFF") {
       setPracticeAm("OFF");
       setPracticePm("OFF");
     } else if (type === "MATCH") {
-      setPracticeAm("GAME");
+      setPracticeAm("EVENT");
       setPracticePm("OFF");
     }
   };
@@ -137,7 +209,7 @@ export default function Schedules() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Edit Form & Weeks list */}
+        {/* Left 2 Columns: Edit Form */}
         <div className="xl:col-span-2 space-y-6">
           <Card className="shadow-md">
             <CardHeader>
@@ -239,65 +311,171 @@ export default function Schedules() {
                   onClick={() => handleApplyTemplate("MATCH")}
                   className="text-[10px] h-7 px-2"
                 >
-                  試合日
+                  イベント
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-5">
               <form onSubmit={handleSave} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* AM Schedule */}
                   <div className="space-y-2">
                     <Label htmlFor="practice-am" className="text-xs font-semibold flex items-center gap-1 text-muted-foreground">
                       <Sun className="h-3.5 w-3.5 text-amber-500" />
                       午前練習予定 (AM)
                     </Label>
-                    <Input
+                    <select
                       id="practice-am"
-                      placeholder="例: S&C"
                       value={practiceAm}
                       onChange={(e) => setPracticeAm(e.target.value)}
-                      className="rounded-xl"
-                    />
+                      className="rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-full text-foreground"
+                    >
+                      <option value="">-- スケジュールを選択 --</option>
+                      {SCHEDULE_OPTIONS.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* PM Schedule */}
                   <div className="space-y-2">
                     <Label htmlFor="practice-pm" className="text-xs font-semibold flex items-center gap-1 text-muted-foreground">
                       <Moon className="h-3.5 w-3.5 text-indigo-400" />
                       午後練習予定 (PM)
                     </Label>
-                    <Input
+                    <select
                       id="practice-pm"
-                      placeholder="例: Ball"
                       value={practicePm}
                       onChange={(e) => setPracticePm(e.target.value)}
-                      className="rounded-xl"
-                    />
+                      className="rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-full text-foreground"
+                    >
+                      <option value="">-- スケジュールを選択 --</option>
+                      {SCHEDULE_OPTIONS.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assignments-input" className="text-xs font-semibold text-muted-foreground">
-                    トリートメント割り当て
-                  </Label>
-                  <Textarea
-                    id="assignments-input"
-                    placeholder={`例:\nMiya #14,#13,#22\nShima #1,#10,#19\nToshi #6,#18`}
-                    value={assignments}
-                    onChange={(e) => setAssignments(e.target.value)}
-                    rows={6}
-                    className="font-mono text-sm rounded-xl leading-relaxed"
-                  />
-                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1.5 bg-accent/30 p-2.5 rounded-lg border">
-                    <AlertCircle className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span>
-                      <strong>書式ルール:</strong> <code>担当者名 #背番号,#背番号</code> の形式で改行して入力してください。右側の選手一覧からワンクリックで背番号を挿入することもできます。
-                    </span>
+                {/* Rich Treatment Assignment Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <Label className="text-sm font-bold text-foreground">
+                      トリートメント割り当て
+                    </Label>
+                    
+                    {/* Add Trainer Form */}
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={newTrainerName}
+                        onChange={(e) => setNewTrainerName(e.target.value)}
+                        className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-48 text-foreground"
+                        disabled={trainersLoading}
+                      >
+                        <option value="">-- スタッフを選択 --</option>
+                        {trainers && trainers.map(t => (
+                          <option key={t.id} value={t.name || ""}>{t.name || "名称未設定"}</option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        onClick={handleAddTrainer}
+                        size="sm"
+                        className="h-8 rounded-xl text-xs gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        スタッフ追加
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Registered Trainer Rows list */}
+                  <div className="space-y-3">
+                    {assignmentRows.length === 0 ? (
+                      <div className="text-center py-8 border border-dashed rounded-2xl bg-muted/20">
+                        <AlertCircle className="h-6 w-6 text-muted-foreground/45 mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground font-medium">トリートメント予定はまだありません</p>
+                        <p className="text-[10px] text-muted-foreground/80 mt-0.5">右上の「スタッフ追加」から開始してください</p>
+                      </div>
+                    ) : (
+                      assignmentRows.map((row, idx) => (
+                        <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border rounded-2xl bg-card shadow-sm hover:shadow-md transition-all">
+                          {/* Left Side: Trainer Name & Assigned Players list */}
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                              <h4 className="text-sm font-bold text-indigo-500 dark:text-indigo-400">{row.trainerName}</h4>
+                            </div>
+                            
+                            {/* Assigned Players list as badges */}
+                            <div className="flex flex-wrap gap-1.5 min-h-[26px] items-center">
+                              {row.playerNumbers.length === 0 ? (
+                                <span className="text-xs text-muted-foreground italic">担当選手なし</span>
+                              ) : (
+                                row.playerNumbers.map((num) => {
+                                  const name = players?.find(p => p.number === num)?.name;
+                                  return (
+                                    <span
+                                      key={num}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"
+                                    >
+                                      #{num} {name ? `(${name})` : ""}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemovePlayerFromTrainer(row.trainerName, num)}
+                                        className="hover:bg-indigo-500/20 rounded-full p-0.5 text-indigo-500 transition-colors"
+                                      >
+                                        <X className="h-2.5 w-2.5" />
+                                      </button>
+                                    </span>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Right Side: Select Player to Add & Delete staff button */}
+                          <div className="flex items-center gap-3 self-end md:self-center shrink-0">
+                            {/* Select Player Dropdown */}
+                            <select
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val) {
+                                  handleAddPlayerToTrainer(row.trainerName, parseInt(val, 10));
+                                  e.target.value = ""; // Reset
+                                }
+                              }}
+                              className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-40 text-foreground"
+                              disabled={playersLoading}
+                            >
+                              <option value="">-- 選手を追加 --</option>
+                              {players && players.map(p => (
+                                <option key={p.id} value={p.number}>#{p.number} {p.name}</option>
+                              ))}
+                            </select>
+
+                            {/* Delete Trainer Button */}
+                            <Button
+                              type="button"
+                              onClick={() => handleRemoveTrainerRow(row.trainerName)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
+                {/* Submit button */}
                 <Button
                   type="submit"
                   disabled={saveSchedule.isPending}
-                  className="w-full rounded-xl font-semibold shadow-md flex items-center justify-center gap-2"
+                  className="w-full rounded-xl font-semibold shadow-md flex items-center justify-center gap-2 pt-3"
                 >
                   <Save className="h-4 w-4" />
                   {saveSchedule.isPending ? "保存中..." : "スケジュールを保存する"}
@@ -307,49 +485,52 @@ export default function Schedules() {
           </Card>
         </div>
 
-        {/* Right Column: Player Checklist Helper */}
+        {/* Right Column: Date List Range Preview */}
         <div className="space-y-6">
           <Card className="shadow-md h-full">
             <CardHeader className="pb-3 border-b">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                選手背番号アシスタント
+                前後1週間のプレビュー
               </CardTitle>
               <CardDescription className="text-xs mt-1">
-                クリックすると、左側の入力欄のカーソル位置に背番号が自動で挿入されます。
+                選択した日付の前後3日間の登録予定を確認できます。
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-4 max-h-[500px] overflow-y-auto custom-scrollbar">
-              {playersLoading ? (
-                <p className="text-sm text-muted-foreground">選手データをロード中...</p>
-              ) : players && players.length > 0 ? (
-                <div className="grid grid-cols-1 gap-1.5">
-                  {players.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleInsertPlayer(p.number)}
-                      className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border bg-background hover:bg-primary/5 hover:border-primary/40 text-left transition-all text-sm group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/10 w-10 text-center shrink-0">
-                          #{p.number}
-                        </span>
-                        <span className="font-medium group-hover:text-primary transition-colors truncate">
-                          {p.name}
-                        </span>
+            <CardContent className="pt-4 space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
+              {dateRange.map(dStr => {
+                const isSelected = dStr === selectedDate;
+                const sched = schedulesMap[dStr];
+                return (
+                  <div
+                    key={dStr}
+                    onClick={() => setSelectedDate(dStr)}
+                    className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/[0.02] ring-1 ring-primary/30 font-bold"
+                        : "border-border/60 hover:bg-accent/20 bg-background"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center pb-1.5 border-b border-border/30">
+                      <span className={`text-xs ${isSelected ? "text-primary font-bold" : "text-foreground"}`}>{dStr}</span>
+                      {isSelected && <span className="text-[9px] bg-primary text-white px-2 py-0.5 rounded-full font-bold">選択中</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-2 text-[10px] text-muted-foreground">
+                      <div>AM: <span className="font-bold text-foreground">{sched?.practiceAm || "OFF"}</span></div>
+                      <div>PM: <span className="font-bold text-foreground">{sched?.practicePm || "OFF"}</span></div>
+                    </div>
+                    {sched?.assignments && (
+                      <div className="pt-1.5 text-[9px] text-muted-foreground flex flex-wrap gap-1">
+                        {parseAssignmentsText(sched.assignments).map((row, i) => (
+                          <span key={i} className="px-1.5 py-0.5 bg-accent rounded text-[8px] truncate max-w-[80px]">
+                            {row.trainerName}
+                          </span>
+                        ))}
                       </div>
-                      <span className="text-[10px] text-muted-foreground uppercase font-medium bg-muted px-2 py-0.5 rounded border">
-                        {p.position}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  選手が登録されていません。先に「選手管理」から追加してください。
-                </p>
-              )}
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         </div>
@@ -357,3 +538,4 @@ export default function Schedules() {
     </div>
   );
 }
+
