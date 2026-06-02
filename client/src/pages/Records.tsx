@@ -7,18 +7,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Textarea } from "@/components/ui/textarea";
 import {
   getBodyPartLabel,
   getTreatmentTypeLabel,
   getTimingLabel,
   BODY_PARTS,
   TREATMENT_TYPES,
+  TIMING_OPTIONS,
 } from "../../../shared/constants";
-import { ClipboardList, Loader2, Trash2, Eye, Filter, X, Calendar, Pencil, User } from "lucide-react";
+import { ClipboardList, Loader2, Trash2, Eye, Filter, X, Calendar, Pencil, User, RotateCcw, Save } from "lucide-react";
 import AnnotationViewer from "@/components/AnnotationViewer";
 import type { AnnotationData } from "@/components/AnnotationCanvas";
 
@@ -58,6 +60,47 @@ export default function Records() {
     { id: detailId ?? 0 },
     { enabled: detailId !== null && detailId > 0 }
   );
+
+  // Detail Dialog Edit Mode States
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editTiming, setEditTiming] = useState<string>("");
+  const [editDuration, setEditDuration] = useState<number>(15);
+  const [editSeverity, setEditSeverity] = useState<string>("normal");
+  const [editSoapS, setEditSoapS] = useState<string>("");
+  const [editSoapO, setEditSoapO] = useState<string>("");
+  const [editSoapA, setEditSoapA] = useState<string>("");
+  const [editSoapP, setEditSoapP] = useState<string>("");
+  const [editComment, setEditComment] = useState<string>("");
+
+  // tRPC update treatment mutation
+  const updateTreatment = trpc.treatment.update.useMutation({
+    onSuccess: () => {
+      toast.success("記録を更新しました");
+      setIsEditing(false);
+      utils.treatment.list.invalidate();
+      if (detailId) {
+        utils.treatment.getById.invalidate({ id: detailId });
+      }
+    },
+    onError: (err) => {
+      toast.error("更新に失敗しました: " + err.message);
+    },
+  });
+
+  // Reset editing state and populate form values when detailData is loaded
+  useEffect(() => {
+    if (detailData) {
+      setEditTiming(detailData.timing || "");
+      setEditDuration(detailData.duration || 15);
+      setEditSeverity(detailData.severity || "normal");
+      setEditSoapS(detailData.soapS || "");
+      setEditSoapO(detailData.soapO || "");
+      setEditSoapA(detailData.soapA || "");
+      setEditSoapP(detailData.soapP || "");
+      setEditComment(detailData.comment || "");
+    }
+    setIsEditing(false);
+  }, [detailData]);
 
   const getPlayerName = (playerId: number) => {
     return players?.find(p => p.id === playerId)?.name ?? "不明";
@@ -357,8 +400,30 @@ export default function Records() {
       {/* Detail Dialog */}
       <Dialog open={detailId !== null} onOpenChange={(open) => { if (!open) setDetailId(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>記録詳細</DialogTitle>
+          <DialogHeader className="flex flex-row items-center justify-between pr-8 border-b pb-2">
+            <DialogTitle className="text-base font-bold">
+              {isEditing ? "📝 治療記録を修正" : "📋 記録詳細"}
+            </DialogTitle>
+            {detailData && !detailLoading && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(!isEditing)}
+                className="h-8 gap-1 text-xs shrink-0"
+              >
+                {isEditing ? (
+                  <>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    キャンセル
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="h-3.5 w-3.5" />
+                    編集する
+                  </>
+                )}
+              </Button>
+            )}
           </DialogHeader>
           {detailLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -369,145 +434,297 @@ export default function Records() {
               記録の読み込みに失敗しました
             </div>
           ) : detailData ? (
-            <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">選手</p>
-                  <p className="text-sm font-medium">#{getPlayerNumber(detailData.playerId)} {getPlayerName(detailData.playerId)}</p>
+            isEditing ? (
+              /* 📝 Edit Mode Form View */
+              <div className="space-y-4 py-1.5 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-2 gap-3 border-b pb-2.5">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">選手</p>
+                    <p className="text-sm font-semibold">#{getPlayerNumber(detailData.playerId)} {getPlayerName(detailData.playerId)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">日時</p>
+                    <p className="text-sm">{format(new Date(detailData.treatmentDate), "yyyy/MM/dd HH:mm", { locale: ja })}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">日時</p>
-                  <p className="text-sm">{format(new Date(detailData.treatmentDate), "yyyy/MM/dd HH:mm", { locale: ja })}</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Timing */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">タイミング</label>
+                    <select
+                      value={editTiming}
+                      onChange={(e) => setEditTiming(e.target.value)}
+                      className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
+                    >
+                      {TIMING_OPTIONS.map(opt => (
+                        <option key={opt.key} value={opt.key}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Duration */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">処置時間 (分)</label>
+                    <input
+                      type="number"
+                      value={editDuration}
+                      onChange={(e) => setEditDuration(parseInt(e.target.value, 10) || 15)}
+                      className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground font-mono"
+                      min="1"
+                      max="300"
+                    />
+                  </div>
+
+                  {/* Severity */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">重症度</label>
+                    <select
+                      value={editSeverity}
+                      onChange={(e) => setEditSeverity(e.target.value)}
+                      className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
+                    >
+                      <option value="normal">🟢 通常</option>
+                      <option value="caution">🔵 要注意</option>
+                      <option value="limited">🟡 要制限</option>
+                      <option value="out">🔴 離脱</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">タイミング</p>
-                  <p className="text-sm">{getTimingLabel(detailData.timing)}</p>
+
+                {/* SOAP Form */}
+                <div className="space-y-2 border-t pt-3">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SOAP記録</p>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">S (主観的情報)</label>
+                      <Textarea
+                        value={editSoapS}
+                        onChange={e => setEditSoapS(e.target.value)}
+                        placeholder="痛みや違和感の主観..."
+                        className="resize-none h-14 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">O (客観的情報)</label>
+                      <Textarea
+                        value={editSoapO}
+                        onChange={e => setEditSoapO(e.target.value)}
+                        placeholder="圧痛、可動域、テスト結果など..."
+                        className="resize-none h-14 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">A (評価)</label>
+                      <Textarea
+                        value={editSoapA}
+                        onChange={e => setEditSoapA(e.target.value)}
+                        placeholder="状態評価・アセスメント..."
+                        className="resize-none h-14 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">P (計画)</label>
+                      <Textarea
+                        value={editSoapP}
+                        onChange={e => setEditSoapP(e.target.value)}
+                        placeholder="治療計画・次回方針..."
+                        className="resize-none h-14 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">処置時間</p>
-                  <p className="text-sm">{detailData.duration}分</p>
+
+                {/* Comment */}
+                <div className="space-y-1 border-t pt-3">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">その他メモ（コメント）</label>
+                  <Textarea
+                    value={editComment}
+                    onChange={e => setEditComment(e.target.value)}
+                    placeholder="その他特記事項..."
+                    className="resize-none h-14 text-xs rounded-xl"
+                  />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">重症度</p>
-                  <p className="text-sm">
-                    {detailData.severity === "out" ? "🔴 離脱"
-                      : detailData.severity === "limited" ? "🟡 要制限"
-                      : detailData.severity === "caution" ? "🔵 要注意"
-                      : "🟢 通常"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">記録者</p>
-                  <p className="text-sm font-medium">{(detailData as any).createdByName ?? "不明"}</p>
+
+                {/* Submit / Cancel Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(false)}
+                    className="text-xs h-8 rounded-xl"
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      updateTreatment.mutate({
+                        id: detailData.id,
+                        timing: editTiming,
+                        duration: editDuration,
+                        severity: editSeverity,
+                        soapS: editSoapS || null,
+                        soapO: editSoapO || null,
+                        soapA: editSoapA || null,
+                        soapP: editSoapP || null,
+                        comment: editComment || null,
+                      });
+                    }}
+                    disabled={updateTreatment.isPending}
+                    className="text-xs h-8 px-5 rounded-xl"
+                  >
+                    {updateTreatment.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    変更を保存する
+                  </Button>
                 </div>
               </div>
+            ) : (
+              /* 📋 High-Fidelity Static View Mode */
+              <div className="space-y-4 py-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">選手</p>
+                    <p className="text-sm font-medium">#{getPlayerNumber(detailData.playerId)} {getPlayerName(detailData.playerId)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">日時</p>
+                    <p className="text-sm">{format(new Date(detailData.treatmentDate), "yyyy/MM/dd HH:mm", { locale: ja })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">タイミング</p>
+                    <p className="text-sm">{getTimingLabel(detailData.timing)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">処置時間</p>
+                    <p className="text-sm">{detailData.duration}分</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">重症度</p>
+                    <p className="text-sm">
+                      {detailData.severity === "out" ? "🔴 離脱"
+                        : detailData.severity === "limited" ? "🟡 要制限"
+                        : detailData.severity === "caution" ? "🔵 要注意"
+                        : "🟢 通常"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">記録者</p>
+                    <p className="text-sm font-medium">{(detailData as any).createdByName ?? "不明"}</p>
+                  </div>
+                </div>
 
-              {detailData.treatmentDetails && typeof detailData.treatmentDetails === "object" ? (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground border-b pb-1">部位別施術内容</p>
-                  <div className="space-y-2">
-                    {Object.entries(detailData.treatmentDetails as Record<string, { treatmentTypes: string[]; duration: number }>).map(([partKey, details]) => (
-                      <div key={partKey} className="p-3 rounded-xl border border-border bg-accent/10 flex items-start justify-between gap-4">
-                        <div className="space-y-1.5">
-                          <span className="font-semibold text-xs text-foreground block">
-                            {getBodyPartLabel(partKey)}
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {details.treatmentTypes.map(tt => (
-                              <Badge key={tt} className="text-[11px] bg-primary/10 text-primary border-0 px-2 py-0.5">
-                                {getTreatmentTypeLabel(tt)}
-                              </Badge>
-                            ))}
+                {detailData.treatmentDetails && typeof detailData.treatmentDetails === "object" ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground border-b pb-1">部位別施術内容</p>
+                    <div className="space-y-2">
+                      {Object.entries(detailData.treatmentDetails as Record<string, { treatmentTypes: string[]; duration: number }>).map(([partKey, details]) => (
+                        <div key={partKey} className="p-3 rounded-xl border border-border bg-accent/10 flex items-start justify-between gap-4">
+                          <div className="space-y-1.5">
+                            <span className="font-semibold text-xs text-foreground block">
+                              {getBodyPartLabel(partKey)}
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {details.treatmentTypes.map(tt => (
+                                <Badge key={tt} className="text-[11px] bg-primary/10 text-primary border-0 px-2 py-0.5">
+                                  {getTreatmentTypeLabel(tt)}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
+                          <span className="text-xs font-semibold text-muted-foreground shrink-0 mt-0.5">{details.duration}分</span>
                         </div>
-                        <span className="text-xs font-semibold text-muted-foreground shrink-0 mt-0.5">{details.duration}分</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                // Fallback for older data
-                <>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">部位</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(detailData.bodyParts as string[]).map(bp => (
-                        <Badge key={bp} variant="outline" className="text-xs">{getBodyPartLabel(bp)}</Badge>
                       ))}
                     </div>
                   </div>
+                ) : (
+                  // Fallback for older data
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1.5">部位</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(detailData.bodyParts as string[]).map(bp => (
+                          <Badge key={bp} variant="outline" className="text-xs">{getBodyPartLabel(bp)}</Badge>
+                        ))}
+                      </div>
+                    </div>
 
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">処置内容</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(detailData.treatmentTypes as string[]).map(tt => (
-                        <Badge key={tt} className="text-xs bg-primary/10 text-primary border-0">{getTreatmentTypeLabel(tt)}</Badge>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1.5">処置内容</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(detailData.treatmentTypes as string[]).map(tt => (
+                          <Badge key={tt} className="text-xs bg-primary/10 text-primary border-0">{getTreatmentTypeLabel(tt)}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* SOAP */}
+                {(detailData.soapS || detailData.soapO || detailData.soapA || detailData.soapP) && (
+                  <div className="space-y-2 border-t pt-3">
+                    <p className="text-xs font-medium text-muted-foreground">SOAP記録</p>
+                    {detailData.soapS && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">S（主観的情報）</p>
+                        <p className="text-sm mt-0.5">{detailData.soapS}</p>
+                      </div>
+                    )}
+                    {detailData.soapO && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">O（客観的情報）</p>
+                        <p className="text-sm mt-0.5">{detailData.soapO}</p>
+                      </div>
+                    )}
+                    {detailData.soapA && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">A（評価）</p>
+                        <p className="text-sm mt-0.5">{detailData.soapA}</p>
+                      </div>
+                    )}
+                    {detailData.soapP && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">P（計画）</p>
+                        <p className="text-sm mt-0.5">{detailData.soapP}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {detailData.comment && (
+                  <div className="border-t pt-3">
+                    <p className="text-xs text-muted-foreground mb-1">コメント</p>
+                    <p className="text-sm">{detailData.comment}</p>
+                  </div>
+                )}
+
+                {/* Annotations */}
+                {detailData.annotations && Object.keys(detailData.annotations as Record<string, AnnotationData>).length > 0 && (
+                  <div className="border-t pt-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <Pencil className="h-3 w-3" />
+                      マーカー描画
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(detailData.annotations as Record<string, AnnotationData>).map(([partKey, annotData]) => (
+                        <div key={partKey} className="space-y-1">
+                          <p className="text-xs text-muted-foreground text-center">{getBodyPartLabel(partKey)}</p>
+                          <AnnotationViewer
+                            bodyPartKey={partKey}
+                            data={annotData}
+                            size={180}
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>
-                </>
-              )}
-
-              {/* SOAP */}
-              {(detailData.soapS || detailData.soapO || detailData.soapA || detailData.soapP) && (
-                <div className="space-y-2 border-t pt-3">
-                  <p className="text-xs font-medium text-muted-foreground">SOAP記録</p>
-                  {detailData.soapS && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">S（主観的情報）</p>
-                      <p className="text-sm mt-0.5">{detailData.soapS}</p>
-                    </div>
-                  )}
-                  {detailData.soapO && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">O（客観的情報）</p>
-                      <p className="text-sm mt-0.5">{detailData.soapO}</p>
-                    </div>
-                  )}
-                  {detailData.soapA && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">A（評価）</p>
-                      <p className="text-sm mt-0.5">{detailData.soapA}</p>
-                    </div>
-                  )}
-                  {detailData.soapP && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">P（計画）</p>
-                      <p className="text-sm mt-0.5">{detailData.soapP}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {detailData.comment && (
-                <div className="border-t pt-3">
-                  <p className="text-xs text-muted-foreground mb-1">コメント</p>
-                  <p className="text-sm">{detailData.comment}</p>
-                </div>
-              )}
-
-              {/* Annotations */}
-              {detailData.annotations && Object.keys(detailData.annotations as Record<string, AnnotationData>).length > 0 && (
-                <div className="border-t pt-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <Pencil className="h-3 w-3" />
-                    マーカー描画
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(detailData.annotations as Record<string, AnnotationData>).map(([partKey, annotData]) => (
-                      <div key={partKey} className="space-y-1">
-                        <p className="text-xs text-muted-foreground text-center">{getBodyPartLabel(partKey)}</p>
-                        <AnnotationViewer
-                          bodyPartKey={partKey}
-                          data={annotData}
-                          size={180}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )
           ) : null}
         </DialogContent>
       </Dialog>
