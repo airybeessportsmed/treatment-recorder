@@ -82,6 +82,7 @@ import {
   Download,
   Printer,
   FileText,
+  AlertCircle,
 } from "lucide-react";
 
 // Icon mapping
