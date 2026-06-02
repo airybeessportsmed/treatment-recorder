@@ -129,6 +129,12 @@ export default function Home() {
   // Form state
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [bodyParts, setBodyParts] = useState<string[]>([]);
+  const [treatmentDate, setTreatmentDate] = useState<string>(() => {
+    const local = new Date();
+    const offset = local.getTimezoneOffset();
+    const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  });
   
   // Per-body-part details: Record<bodyPartKey, { treatmentTypes: string[], duration: number }>
   const [treatmentDetails, setTreatmentDetails] = useState<Record<string, { treatmentTypes: string[]; duration: number }>>({});
@@ -197,6 +203,10 @@ export default function Home() {
     setAnnotations({});
     setAnnotatingPart(null);
     setSelectedCategoryForPart({});
+    const local = new Date();
+    const offset = local.getTimezoneOffset();
+    const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+    setTreatmentDate(localDate.toISOString().split('T')[0]);
   };
 
   const handleToggleBodyPart = (key: string) => {
@@ -287,7 +297,7 @@ export default function Home() {
       annotations: Object.keys(annotations).length > 0 ? annotations : undefined,
       treatmentDetails: treatmentDetails,
       severity,
-      treatmentDate: new Date(),
+      treatmentDate: new Date(treatmentDate),
     });
   };
 
@@ -574,6 +584,36 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Left Column: Player + Body Map */}
             <div className="space-y-5">
+              {/* Date Selection */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">施術日</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="date"
+                      value={treatmentDate}
+                      onChange={(e) => setTreatmentDate(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-border bg-background hover:border-primary/50 focus:border-primary focus:outline-none text-sm transition-all shadow-sm max-w-xs w-full text-foreground"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        const local = new Date();
+                        const offset = local.getTimezoneOffset();
+                        const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+                        setTreatmentDate(localDate.toISOString().split('T')[0]);
+                      }}
+                      className="text-xs shrink-0"
+                    >
+                      今日に設定
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Player Selection */}
               <Card>
                 <CardHeader className="pb-3">
