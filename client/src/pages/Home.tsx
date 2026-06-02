@@ -105,6 +105,112 @@ export default function Home() {
     limit: 100,
   });
 
+  // Calculate 7-day range starting from today for dashboard schedule
+  const dashboardDateRange = useMemo(() => {
+    const dates = [];
+    const baseDate = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() + i);
+      const offset = d.getTimezoneOffset();
+      const localD = new Date(d.getTime() - (offset * 60 * 1000));
+      dates.push(localD.toISOString().split("T")[0]);
+    }
+    return dates;
+  }, []);
+
+  // Fetch schedules for 7 days
+  const { data: dashboardSchedules, isLoading: dashboardSchedulesLoading } = trpc.schedule.list.useQuery({
+    dateFrom: dashboardDateRange[0],
+    dateTo: dashboardDateRange[dashboardDateRange.length - 1],
+  });
+
+  // Map schedules by date
+  const dashboardSchedulesMap = useMemo(() => {
+    const map: Record<string, typeof dashboardSchedules[0]> = {};
+    if (dashboardSchedules) {
+      dashboardSchedules.forEach((s) => {
+        map[s.date] = s;
+      });
+    }
+    return map;
+  }, [dashboardSchedules]);
+
+  // Map player names by number
+  const playerNumberMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    if (players) {
+      players.forEach((p) => {
+        map[p.number] = p.name;
+      });
+    }
+    return map;
+  }, [players]);
+
+  // Format date helper (e.g. 6/2 (火))
+  const formatDateLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const dayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+    const month = d.getMonth() + 1;
+    const date = d.getDate();
+    const day = dayLabels[d.getDay()];
+    return `${month}/${date} (${day})`;
+  };
+
+  // Parser helper to convert trainer assignments into rich badges with names
+  const parseAssignments = (assignmentsText: string | null | undefined) => {
+    if (!assignmentsText) return <p className="text-[10px] text-muted-foreground italic mt-1.5">予定なし</p>;
+    const lines = assignmentsText.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return <p className="text-[10px] text-muted-foreground italic mt-1.5">予定なし</p>;
+    
+    return (
+      <div className="space-y-1.5 mt-2 overflow-y-auto max-h-[100px] pr-0.5 custom-scrollbar">
+        {lines.map((line, idx) => {
+          const match = line.match(/^([^#\s：:]+)(?:\s*[:：]\s*|\s+)?(.*)$/);
+          if (!match) {
+            return (
+              <div key={idx} className="text-[10px] text-muted-foreground bg-accent/20 px-1.5 py-0.5 rounded">
+                {line}
+              </div>
+            );
+          }
+          const trainerName = match[1];
+          const playerText = match[2];
+          
+          const numbers: number[] = [];
+          const regex = /#(\d+)/g;
+          let m;
+          while ((m = regex.exec(playerText)) !== null) {
+            numbers.push(parseInt(m[1], 10));
+          }
+
+          return (
+            <div key={idx} className="bg-accent/20 border border-accent-foreground/5 p-1.5 rounded-lg text-left space-y-1">
+              <div className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-1 truncate">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+                {trainerName}
+              </div>
+              <div className="flex flex-wrap gap-0.5">
+                {numbers.length > 0 ? (
+                  numbers.map((num) => {
+                    const name = playerNumberMap[num];
+                    return (
+                      <Badge key={num} variant="outline" className="text-[8px] px-1 py-0 font-medium bg-background border hover:bg-accent/40 text-foreground transition-all shrink-0">
+                        #{num} {name ? `(${name})` : ""}
+                      </Badge>
+                    );
+                  })
+                ) : (
+                  <span className="text-[9px] text-muted-foreground truncate">{playerText}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const createTreatment = trpc.treatment.create.useMutation({
     onSuccess: () => {
       toast.success("記録を保存しました");
@@ -373,6 +479,110 @@ export default function Home() {
 
         {/* 📊 Dashboard Tab Content */}
         <TabsContent value="dashboard" className="space-y-6 outline-none">
+          {/* 📅 1週間スケジュールボード */}
+          <Card className="shadow-md border border-border/85 bg-gradient-to-br from-card to-background overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+            <CardHeader className="pb-2 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  1週間のスケジュール ＆ トリートメント予定
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  チーム練習スケジュールと、各トレーナーのトリートメント割り当て（向こう1週間）
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.location.href = "/schedules";
+                }}
+                className="text-xs shrink-0 h-8 font-medium rounded-xl hover:bg-accent/80 hover:text-accent-foreground"
+              >
+                予定を編集する
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4">
+              {dashboardSchedulesLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground ml-2">スケジュールを読み込み中...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {dashboardDateRange.map((dateStr) => {
+                    const schedule = dashboardSchedulesMap[dateStr];
+                    
+                    // 日付フォーマットの比較のために現在時刻のYYYY-MM-DDを計算
+                    const todayLocal = new Date();
+                    const offset = todayLocal.getTimezoneOffset();
+                    const localD = new Date(todayLocal.getTime() - (offset * 60 * 1000));
+                    const currentTodayStr = localD.toISOString().split("T")[0];
+                    const isToday = dateStr === currentTodayStr;
+                    
+                    return (
+                      <div
+                        key={dateStr}
+                        className={cn(
+                          "rounded-2xl p-3 border transition-all flex flex-col justify-between min-h-[220px] bg-card relative shadow-sm",
+                          isToday
+                            ? "border-primary bg-primary/[0.02] shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)] ring-1 ring-primary/30"
+                            : "border-border/60 hover:border-primary/30"
+                        )}
+                      >
+                        {/* 今日バッジ */}
+                        {isToday && (
+                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                            今日
+                          </div>
+                        )}
+
+                        {/* 日付ヘッダー */}
+                        <div className="text-center pb-2 border-b border-border/40">
+                          <p className={cn(
+                            "text-xs font-bold font-mono tracking-tight",
+                            isToday ? "text-primary font-extrabold" : "text-foreground"
+                          )}>
+                            {formatDateLabel(dateStr)}
+                          </p>
+                        </div>
+
+                        {/* 練習予定 (AM/PM) */}
+                        <div className="space-y-1.5 py-3 border-b border-dashed border-border/40">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground flex items-center gap-1 font-medium">
+                              <Sun className="h-3 w-3 text-amber-500" />
+                              AM
+                            </span>
+                            <span className="font-bold text-foreground truncate max-w-[70px]">
+                              {schedule?.practiceAm || "OFF"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground flex items-center gap-1 font-medium">
+                              <Moon className="h-3 w-3 text-indigo-400" />
+                              PM
+                            </span>
+                            <span className="font-bold text-foreground truncate max-w-[70px]">
+                              {schedule?.practicePm || "OFF"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* トリートメント担当予定 */}
+                        <div className="flex-1 pt-2 flex flex-col justify-start min-h-[100px]">
+                          <p className="text-[9px] font-bold text-muted-foreground tracking-wider uppercase">トリートメント</p>
+                          {parseAssignments(schedule?.assignments)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* 本日の施術実績 (3連カード) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="relative overflow-hidden bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border-indigo-500/20 shadow-sm hover:shadow transition-all duration-200">

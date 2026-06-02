@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { ClipboardPlus, List, Users, LogOut, PanelLeft, Activity, UserPlus, User, ArrowRight, Trash2 } from "lucide-react";
+import { ClipboardPlus, List, Users, LogOut, PanelLeft, Activity, UserPlus, User, ArrowRight, Trash2, Calendar } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -36,6 +36,7 @@ const menuItems = [
   { icon: ClipboardPlus, label: "記録する", path: "/" },
   { icon: List, label: "記録一覧", path: "/records" },
   { icon: Users, label: "選手管理", path: "/players" },
+  { icon: Calendar, label: "スケジュール管理", path: "/schedules" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

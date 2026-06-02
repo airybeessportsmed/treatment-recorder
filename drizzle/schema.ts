@@ -70,3 +70,20 @@ export const treatments = mysqlTable("treatments", {
 
 export type Treatment = typeof treatments.$inferSelect;
 export type InsertTreatment = typeof treatments.$inferInsert;
+
+/**
+ * Schedules table - チームスケジュール & トリートメント割り当て
+ */
+export const schedules = mysqlTable("schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 10 }).notNull().unique(), // YYYY-MM-DD
+  practiceAm: text("practiceAm"),
+  practicePm: text("practicePm"),
+  assignments: text("assignments"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Schedule = typeof schedules.$inferSelect;
+export type InsertSchedule = typeof schedules.$inferInsert;
+

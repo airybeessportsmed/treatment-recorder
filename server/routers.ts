@@ -222,6 +222,30 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+
+  // ===== Schedule Management =====
+  schedule: router({
+    list: protectedProcedure
+      .input(z.object({
+        dateFrom: z.string(),
+        dateTo: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return db.getScheduleByDateRange(input.dateFrom, input.dateTo);
+      }),
+
+    save: protectedProcedure
+      .input(z.object({
+        date: z.string(),
+        practiceAm: z.string().nullable().optional(),
+        practicePm: z.string().nullable().optional(),
+        assignments: z.string().nullable().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.upsertSchedule(input);
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

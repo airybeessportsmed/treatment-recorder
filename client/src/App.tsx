@@ -8,6 +8,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import Records from "./pages/Records";
 import Players from "./pages/Players";
+import Schedules from "./pages/Schedules";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
         <Route path={"/"} component={Home} />
         <Route path={"/records"} component={Records} />
         <Route path={"/players"} component={Players} />
+        <Route path={"/schedules"} component={Schedules} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

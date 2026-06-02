@@ -1,7 +1,7 @@
 import { eq, desc, and, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, players, treatments, type InsertPlayer, type InsertTreatment } from "../drizzle/schema";
+import { InsertUser, users, players, treatments, schedules, type InsertPlayer, type InsertTreatment } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -281,5 +281,42 @@ export async function deactivateUser(openId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(users).set({ isActive: 0 }).where(eq(users.openId, openId));
+}
+
+export async function getScheduleByDateRange(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(schedules)
+    .where(and(
+      sql`${schedules.date} >= ${dateFrom}`,
+      sql`${schedules.date} <= ${dateTo}`
+    ))
+    .orderBy(schedules.date);
+}
+
+export async function upsertSchedule(data: {
+  date: string;
+  practiceAm?: string | null;
+  practicePm?: string | null;
+  assignments?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const existing = await db.select().from(schedules).where(eq(schedules.date, data.date)).limit(1);
+  if (existing.length > 0) {
+    await db.update(schedules).set({
+      practiceAm: data.practiceAm ?? null,
+      practicePm: data.practicePm ?? null,
+      assignments: data.assignments ?? null,
+    }).where(eq(schedules.date, data.date));
+  } else {
+    await db.insert(schedules).values({
+      date: data.date,
+      practiceAm: data.practiceAm ?? null,
+      practicePm: data.practicePm ?? null,
+      assignments: data.assignments ?? null,
+    });
+  }
 }
 
