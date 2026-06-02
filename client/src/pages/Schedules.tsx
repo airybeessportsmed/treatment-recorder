@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Star } from "lucide-react";
+import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Star, RefreshCw } from "lucide-react";
 
 const SCHEDULE_OPTIONS = [
   "Ball",
