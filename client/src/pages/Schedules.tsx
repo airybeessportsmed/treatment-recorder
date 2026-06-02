@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2 } from "lucide-react";
+import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Settings, Star } from "lucide-react";
 
 const SCHEDULE_OPTIONS = [
   "Ball",
@@ -113,8 +113,21 @@ export default function Schedules() {
       setPracticeAm("");
       setPracticePm("");
       
-      // If there is no existing schedule and trainers list is loaded,
-      // pre-register the first 3 trainers as defaults.
+      // Load default trainers config from localStorage if available
+      const savedDefaults = localStorage.getItem("default_trainers");
+      if (savedDefaults) {
+        try {
+          const names = JSON.parse(savedDefaults) as string[];
+          if (names.length > 0) {
+            setAssignmentRows(names.map(name => ({ trainerName: name, playerNumbers: [] })));
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to parse saved default trainers", e);
+        }
+      }
+
+      // Fallback: If no localStorage configuration, pre-register the first 3 trainers as defaults.
       if (trainers && trainers.length > 0) {
         const defaultRows = trainers.slice(0, 3).map(t => ({
           trainerName: t.name || "名称未設定",
@@ -146,6 +159,35 @@ export default function Schedules() {
       practicePm: practicePm || null,
       assignments: serializeAssignments(assignmentRows) || null,
     });
+  };
+
+  // Save current trainers structure as the default configuration
+  const handleSaveDefaultTrainers = () => {
+    const trainerNames = assignmentRows.map(row => row.trainerName).filter(Boolean);
+    if (trainerNames.length === 0) {
+      toast.error("デフォルトとして保存するスタッフが登録されていません");
+      return;
+    }
+    localStorage.setItem("default_trainers", JSON.stringify(trainerNames));
+    toast.success("現在のスタッフ構成をデフォルトとして保存しました！", {
+      description: "以降、新規の日付を選択した際にこのスタッフ構成が自動表示されます。"
+    });
+  };
+
+  // Reset default trainers config to system fallback (first 3 trainers)
+  const handleResetDefaultTrainers = () => {
+    localStorage.removeItem("default_trainers");
+    toast.success("デフォルトのスタッフ構成を初期状態にリセットしました");
+    
+    // Immediately apply system fallback if current date is empty
+    const current = schedulesMap[selectedDate];
+    if (!current && trainers && trainers.length > 0) {
+      const defaultRows = trainers.slice(0, 3).map(t => ({
+        trainerName: t.name || "名称未設定",
+        playerNumbers: []
+      }));
+      setAssignmentRows(defaultRows);
+    }
   };
 
   // Handler to add a trainer row manually
@@ -367,17 +409,50 @@ export default function Schedules() {
 
                 {/* Rich Treatment Assignment Section */}
                 <div className="space-y-4 pt-4 border-t">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <Label className="text-sm font-bold text-foreground">
-                      トリートメント割り当て
-                    </Label>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold text-foreground">
+                        トリートメント割り当て
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        スタッフごとに割り当てを設定します。
+                      </p>
+                    </div>
                     
-                    {/* Add Trainer Form */}
-                    <div className="flex items-center gap-2">
+                    {/* Top action bar: Add Trainer & Set Default */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Set Default config button */}
+                      <Button
+                        type="button"
+                        onClick={handleSaveDefaultTrainers}
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl text-xs gap-1 border-primary/40 hover:bg-primary/5 text-primary font-medium"
+                        title="現在のスタッフ構成をデフォルトとして保存します"
+                      >
+                        <Star className="h-3.5 w-3.5 fill-primary/10" />
+                        デフォルトに設定
+                      </Button>
+
+                      {/* Reset defaults button */}
+                      <Button
+                        type="button"
+                        onClick={handleResetDefaultTrainers}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 rounded-xl text-[10px] text-muted-foreground hover:bg-muted font-medium"
+                        title="デフォルト構成を初期設定に戻します"
+                      >
+                        初期化
+                      </Button>
+
+                      <div className="h-4 w-[1px] bg-border/80 mx-1 hidden sm:block" />
+
+                      {/* Select/Add Trainer Form */}
                       <select
                         value={newTrainerName}
                         onChange={(e) => setNewTrainerName(e.target.value)}
-                        className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-48 text-foreground"
+                        className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-40 text-foreground"
                         disabled={trainersLoading}
                       >
                         <option value="">-- スタッフを追加 --</option>
@@ -392,7 +467,7 @@ export default function Schedules() {
                         className="h-8 rounded-xl text-xs gap-1"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        スタッフ追加
+                        追加
                       </Button>
                     </div>
                   </div>
@@ -403,7 +478,7 @@ export default function Schedules() {
                       <div className="text-center py-8 border border-dashed rounded-2xl bg-muted/20">
                         <AlertCircle className="h-6 w-6 text-muted-foreground/45 mx-auto mb-2" />
                         <p className="text-xs text-muted-foreground font-medium">トリートメント予定はまだありません</p>
-                        <p className="text-[10px] text-muted-foreground/80 mt-0.5">右上の「スタッフ追加」から開始してください</p>
+                        <p className="text-[10px] text-muted-foreground/80 mt-0.5">右上の「追加」からスタッフを追加するか、「デフォルトに設定」を行ってください</p>
                       </div>
                     ) : (
                       assignmentRows.map((row, idx) => (
