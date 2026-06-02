@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, X } from "lucide-react";
+import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2 } from "lucide-react";
 
 const SCHEDULE_OPTIONS = [
   "Ball",
@@ -33,7 +33,7 @@ export default function Schedules() {
   // Load registered trainers (users)
   const { data: trainers, isLoading: trainersLoading } = trpc.auth.listTrainers.useQuery();
 
-  // Selected trainer for adding to assignment
+  // Selected trainer for adding to assignment manually
   const [newTrainerName, setNewTrainerName] = useState<string>("");
 
   // Visual state for assignments: Array<{ trainerName: string; playerNumbers: number[] }>
@@ -101,7 +101,7 @@ export default function Schedules() {
       .join("\n");
   };
 
-  // Handle selectedDate changes to populate form fields
+  // Handle selectedDate changes to populate form fields & set default trainers
   useMemo(() => {
     const current = schedulesMap[selectedDate];
     if (current) {
@@ -112,9 +112,20 @@ export default function Schedules() {
     } else {
       setPracticeAm("");
       setPracticePm("");
-      setAssignmentRows([]);
+      
+      // If there is no existing schedule and trainers list is loaded,
+      // pre-register the first 3 trainers as defaults.
+      if (trainers && trainers.length > 0) {
+        const defaultRows = trainers.slice(0, 3).map(t => ({
+          trainerName: t.name || "名称未設定",
+          playerNumbers: []
+        }));
+        setAssignmentRows(defaultRows);
+      } else {
+        setAssignmentRows([]);
+      }
     }
-  }, [selectedDate, schedulesMap]);
+  }, [selectedDate, schedulesMap, trainers]);
 
   // Save Schedule mutation
   const saveSchedule = trpc.schedule.save.useMutation({
@@ -137,7 +148,7 @@ export default function Schedules() {
     });
   };
 
-  // Handler to add a trainer row
+  // Handler to add a trainer row manually
   const handleAddTrainer = () => {
     if (!newTrainerName) {
       toast.error("スタッフを選択してください");
@@ -162,10 +173,7 @@ export default function Schedules() {
     setAssignmentRows(prev =>
       prev.map(row => {
         if (row.trainerName === trainerName) {
-          if (row.playerNumbers.includes(playerNumber)) {
-            toast.error("この選手は既にこのスタッフに割り当てられています");
-            return row;
-          }
+          if (row.playerNumbers.includes(playerNumber)) return row;
           return { ...row, playerNumbers: [...row.playerNumbers, playerNumber] };
         }
         return row;
@@ -372,7 +380,7 @@ export default function Schedules() {
                         className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-48 text-foreground"
                         disabled={trainersLoading}
                       >
-                        <option value="">-- スタッフを選択 --</option>
+                        <option value="">-- スタッフを追加 --</option>
                         {trainers && trainers.map(t => (
                           <option key={t.id} value={t.name || ""}>{t.name || "名称未設定"}</option>
                         ))}
@@ -390,7 +398,7 @@ export default function Schedules() {
                   </div>
 
                   {/* Registered Trainer Rows list */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {assignmentRows.length === 0 ? (
                       <div className="text-center py-8 border border-dashed rounded-2xl bg-muted/20">
                         <AlertCircle className="h-6 w-6 text-muted-foreground/45 mx-auto mb-2" />
@@ -399,71 +407,69 @@ export default function Schedules() {
                       </div>
                     ) : (
                       assignmentRows.map((row, idx) => (
-                        <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border rounded-2xl bg-card shadow-sm hover:shadow-md transition-all">
-                          {/* Left Side: Trainer Name & Assigned Players list */}
-                          <div className="space-y-2 flex-1">
+                        <div key={idx} className="flex flex-col p-4 border rounded-2xl bg-card shadow-sm hover:shadow-md transition-all gap-3 relative">
+                          
+                          {/* Row Header: Trainer Name & Delete staff button */}
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                              <h4 className="text-sm font-bold text-indigo-500 dark:text-indigo-400">{row.trainerName}</h4>
+                              <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                              <h4 className="text-sm font-extrabold text-indigo-500 dark:text-indigo-400">{row.trainerName}</h4>
                             </div>
                             
-                            {/* Assigned Players list as badges */}
-                            <div className="flex flex-wrap gap-1.5 min-h-[26px] items-center">
-                              {row.playerNumbers.length === 0 ? (
-                                <span className="text-xs text-muted-foreground italic">担当選手なし</span>
-                              ) : (
-                                row.playerNumbers.map((num) => {
-                                  const name = players?.find(p => p.number === num)?.name;
-                                  return (
-                                    <span
-                                      key={num}
-                                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"
-                                    >
-                                      #{num} {name ? `(${name})` : ""}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemovePlayerFromTrainer(row.trainerName, num)}
-                                        className="hover:bg-indigo-500/20 rounded-full p-0.5 text-indigo-500 transition-colors"
-                                      >
-                                        <X className="h-2.5 w-2.5" />
-                                      </button>
-                                    </span>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Right Side: Select Player to Add & Delete staff button */}
-                          <div className="flex items-center gap-3 self-end md:self-center shrink-0">
-                            {/* Select Player Dropdown */}
-                            <select
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val) {
-                                  handleAddPlayerToTrainer(row.trainerName, parseInt(val, 10));
-                                  e.target.value = ""; // Reset
-                                }
-                              }}
-                              className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-40 text-foreground"
-                              disabled={playersLoading}
-                            >
-                              <option value="">-- 選手を追加 --</option>
-                              {players && players.map(p => (
-                                <option key={p.id} value={p.number}>#{p.number} {p.name}</option>
-                              ))}
-                            </select>
-
                             {/* Delete Trainer Button */}
                             <Button
                               type="button"
                               onClick={() => handleRemoveTrainerRow(row.trainerName)}
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl"
+                              className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-lg absolute top-3 right-3"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
+                          </div>
+
+                          {/* Quick selection grid: One-tap Player buttons */}
+                          <div className="space-y-1.5 pt-1.5 border-t border-border/40">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                              選手割り当て (クリックで追加 / 解除)
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {playersLoading ? (
+                                <span className="text-xs text-muted-foreground italic">選手データを読み込み中...</span>
+                              ) : players && players.length > 0 ? (
+                                players.map((p) => {
+                                  const isAssigned = row.playerNumbers.includes(p.number);
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      onClick={() => {
+                                        if (isAssigned) {
+                                          handleRemovePlayerFromTrainer(row.trainerName, p.number);
+                                        } else {
+                                          handleAddPlayerToTrainer(row.trainerName, p.number);
+                                        }
+                                      }}
+                                      className={`h-7 px-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 border ${
+                                        isAssigned
+                                          ? "bg-indigo-500 text-white border-indigo-500 shadow-sm"
+                                          : "bg-background text-muted-foreground border-border hover:bg-accent/40"
+                                      }`}
+                                      title={`${p.name} (${p.position})`}
+                                    >
+                                      <span className={isAssigned ? "text-white" : "text-primary font-mono text-[10px]"}>
+                                        #{p.number}
+                                      </span>
+                                      <span className="text-[9px] font-normal opacity-90 truncate max-w-[60px]">
+                                        {p.name}
+                                      </span>
+                                    </button>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">登録されている選手がいません。「選手管理」から追加してください。</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -538,4 +544,3 @@ export default function Schedules() {
     </div>
   );
 }
-
