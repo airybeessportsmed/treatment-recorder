@@ -465,6 +465,7 @@ export default function Home() {
 
   // Detail Dialog Edit Mode States
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editDate, setEditDate] = useState<string>("");
   const [editTiming, setEditTiming] = useState<string>("");
   const [editDuration, setEditDuration] = useState<number>(15);
   const [editSeverity, setEditSeverity] = useState<string>("normal");
@@ -492,6 +493,7 @@ export default function Home() {
   // Reset editing state and populate form values when detailData is loaded
   useEffect(() => {
     if (detailData) {
+      setEditDate(detailData.treatmentDate ? format(new Date(detailData.treatmentDate), "yyyy-MM-dd'T'HH:mm") : "");
       setEditTiming(detailData.timing || "");
       setEditDuration(detailData.duration || 15);
       setEditSeverity(detailData.severity || "normal");
@@ -1899,14 +1901,19 @@ export default function Home() {
             isEditing ? (
               /* 📝 Edit Mode Form View */
               <div className="space-y-4 py-1.5 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
-                <div className="grid grid-cols-2 gap-3 border-b pb-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-b pb-2.5">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">選手</p>
                     <p className="text-sm font-semibold">#{getPlayerNumber(detailData.playerId)} {getPlayerName(detailData.playerId)}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">日時</p>
-                    <p className="text-sm">{format(new Date(detailData.treatmentDate), "yyyy/MM/dd HH:mm", { locale: ja })}</p>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">日時</label>
+                    <input
+                      type="datetime-local"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
+                    />
                   </div>
                 </div>
 
@@ -2031,6 +2038,7 @@ export default function Home() {
                         soapA: editSoapA || null,
                         soapP: editSoapP || null,
                         comment: editComment || null,
+                        treatmentDate: editDate ? new Date(editDate) : undefined,
                       });
                     }}
                     disabled={updateTreatment.isPending}
