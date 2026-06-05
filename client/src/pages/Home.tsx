@@ -476,6 +476,8 @@ export default function Home() {
   const [editSoapA, setEditSoapA] = useState<string>("");
   const [editSoapP, setEditSoapP] = useState<string>("");
   const [editComment, setEditComment] = useState<string>("");
+  const [editBodyParts, setEditBodyParts] = useState<string[]>([]);
+  const [editTreatmentDetails, setEditTreatmentDetails] = useState<Record<string, { treatmentTypes: string[]; duration: number }>>({});
 
   // tRPC update treatment mutation
   const updateTreatment = trpc.treatment.update.useMutation({
@@ -504,9 +506,31 @@ export default function Home() {
       setEditSoapA(detailData.soapA || "");
       setEditSoapP(detailData.soapP || "");
       setEditComment(detailData.comment || "");
+      setEditBodyParts(detailData.bodyParts || []);
+      setEditTreatmentDetails((detailData.treatmentDetails as Record<string, { treatmentTypes: string[]; duration: number }>) || {});
     }
     setIsEditing(false);
   }, [detailData]);
+
+  const handleEditToggleBodyPart = (key: string) => {
+    setEditBodyParts(prev => {
+      const isRemoving = prev.includes(key);
+      if (isRemoving) {
+        setEditTreatmentDetails(d => {
+          const next = { ...d };
+          delete next[key];
+          return next;
+        });
+        return prev.filter(k => k !== key);
+      } else {
+        setEditTreatmentDetails(d => ({
+          ...d,
+          [key]: { treatmentTypes: [], duration: 15 }
+        }));
+        return [...prev, key];
+      }
+    });
+  };
 
   // Form state
   const [playerId, setPlayerId] = useState<number | null>(null);
@@ -2034,6 +2058,104 @@ export default function Home() {
                   />
                 </div>
 
+                {/* 部位と施術内容の編集 */}
+                <div className="space-y-3 border-t pt-3">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">部位と施術内容</p>
+                  
+                  {/* Body Map in Dialog */}
+                  <div className="p-3 border rounded-xl bg-accent/5">
+                    <BodyMap selectedParts={editBodyParts} onTogglePart={handleEditToggleBodyPart} />
+                  </div>
+
+                  {/* Per Body Part Details Form */}
+                  <div className="space-y-3">
+                    {editBodyParts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded-xl">
+                        部位を選択してください
+                      </p>
+                    ) : (
+                      editBodyParts.map(partKey => {
+                        const details = editTreatmentDetails[partKey] || { treatmentTypes: [], duration: 15 };
+                        return (
+                          <div key={partKey} className="p-3 border rounded-xl bg-card space-y-2.5 relative">
+                            <div className="flex items-center justify-between border-b pb-1.5">
+                              <span className="text-xs font-bold">{getBodyPartLabel(partKey)}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleEditToggleBodyPart(partKey)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+
+                            {/* Treatment Types for this Part */}
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-muted-foreground uppercase">処置内容</label>
+                              <div className="flex flex-wrap gap-1">
+                                {TREATMENT_TYPES.map(type => {
+                                  const isChecked = details.treatmentTypes.includes(type.key);
+                                  return (
+                                    <button
+                                      key={type.key}
+                                      onClick={() => {
+                                        setEditTreatmentDetails(prev => {
+                                          const next = { ...prev };
+                                          const currentTypes = next[partKey]?.treatmentTypes || [];
+                                          const newTypes = currentTypes.includes(type.key)
+                                            ? currentTypes.filter(t => t !== type.key)
+                                            : [...currentTypes, type.key];
+                                          next[partKey] = {
+                                            ...next[partKey],
+                                            treatmentTypes: newTypes,
+                                            duration: next[partKey]?.duration || 15,
+                                          };
+                                          return next;
+                                        });
+                                      }}
+                                      className={cn(
+                                        "px-2 py-1 rounded-lg border text-[10px] transition-all",
+                                        isChecked
+                                          ? "border-primary bg-primary/5 text-primary"
+                                          : "border-border text-muted-foreground hover:bg-accent"
+                                      )}
+                                    >
+                                      {type.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Duration for this Part */}
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-muted-foreground uppercase block">処置時間 (分)</label>
+                              <input
+                                type="number"
+                                value={details.duration}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10) || 15;
+                                  setEditTreatmentDetails(prev => ({
+                                    ...prev,
+                                    [partKey]: {
+                                      ...prev[partKey],
+                                      duration: val,
+                                    }
+                                  }));
+                                }}
+                                className="rounded-lg border border-input bg-background px-2.5 py-1 text-xs focus:ring-2 focus:ring-ring w-24 text-foreground font-mono"
+                                min="1"
+                                max="180"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
                 {/* Submit / Cancel Buttons */}
                 <div className="flex items-center justify-end gap-2 pt-3 border-t">
                   <Button
@@ -2047,10 +2169,17 @@ export default function Home() {
                   <Button
                     size="sm"
                     onClick={() => {
+                      const allTreatmentTypes = Array.from(
+                        new Set(Object.values(editTreatmentDetails).flatMap(d => d.treatmentTypes))
+                      );
+                      const totalDuration = Object.values(editTreatmentDetails).reduce(
+                        (sum, d) => sum + d.duration,
+                        0
+                      );
                       updateTreatment.mutate({
                         id: detailData.id,
                         timing: editTiming,
-                        duration: editDuration,
+                        duration: totalDuration || editDuration,
                         severity: editSeverity,
                         soapS: editSoapS || null,
                         soapO: editSoapO || null,
@@ -2058,6 +2187,9 @@ export default function Home() {
                         soapP: editSoapP || null,
                         comment: editComment || null,
                         treatmentDate: editDate ? new Date(editDate) : undefined,
+                        bodyParts: editBodyParts,
+                        treatmentTypes: allTreatmentTypes,
+                        treatmentDetails: editTreatmentDetails,
                       });
                     }}
                     disabled={updateTreatment.isPending}
