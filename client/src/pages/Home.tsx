@@ -31,6 +31,7 @@ import {
   TREATMENT_TYPES,
   TREATMENT_CATEGORIES,
   TIMING_OPTIONS,
+  TIMING_DEFAULT_HOURS,
   DURATION_PRESETS,
   getBodyPartLabel,
   getTreatmentTypeLabel,
@@ -513,7 +514,7 @@ export default function Home() {
     const local = new Date();
     const offset = local.getTimezoneOffset();
     const localDate = new Date(local.getTime() - (offset * 60 * 1000));
-    return localDate.toISOString().split('T')[0];
+    return localDate.toISOString().slice(0, 16);
   });
   
   // Per-body-part details: Record<bodyPartKey, { treatmentTypes: string[], duration: number }>
@@ -586,7 +587,16 @@ export default function Home() {
     const local = new Date();
     const offset = local.getTimezoneOffset();
     const localDate = new Date(local.getTime() - (offset * 60 * 1000));
-    setTreatmentDate(localDate.toISOString().split('T')[0]);
+    setTreatmentDate(localDate.toISOString().slice(0, 16));
+  };
+
+  const handleTimingSelect = (key: string) => {
+    setTiming(key);
+    const defaultTime = TIMING_DEFAULT_HOURS[key];
+    if (defaultTime && treatmentDate) {
+      const datePart = treatmentDate.split("T")[0];
+      setTreatmentDate(`${datePart}T${defaultTime}`);
+    }
   };
 
   const handleToggleBodyPart = (key: string) => {
@@ -1077,7 +1087,7 @@ export default function Home() {
                 <CardContent>
                   <div className="flex items-center gap-3">
                     <input
-                      type="date"
+                      type="datetime-local"
                       value={treatmentDate}
                       onChange={(e) => setTreatmentDate(e.target.value)}
                       className="px-3 py-2 rounded-lg border border-border bg-background hover:border-primary/50 focus:border-primary focus:outline-none text-sm transition-all shadow-sm max-w-xs w-full text-foreground"
@@ -1089,7 +1099,7 @@ export default function Home() {
                         const local = new Date();
                         const offset = local.getTimezoneOffset();
                         const localDate = new Date(local.getTime() - (offset * 60 * 1000));
-                        setTreatmentDate(localDate.toISOString().split('T')[0]);
+                        setTreatmentDate(localDate.toISOString().slice(0, 16));
                       }}
                       className="text-xs shrink-0"
                     >
@@ -1395,7 +1405,7 @@ export default function Home() {
                       return (
                         <button
                           key={t.key}
-                          onClick={() => setTiming(t.key)}
+                          onClick={() => handleTimingSelect(t.key)}
                           className={cn(
                             "flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg border text-xs transition-all",
                             isSelected
@@ -1923,7 +1933,15 @@ export default function Home() {
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">タイミング</label>
                     <select
                       value={editTiming}
-                      onChange={(e) => setEditTiming(e.target.value)}
+                      onChange={(e) => {
+                        const newTiming = e.target.value;
+                        setEditTiming(newTiming);
+                        const defaultTime = TIMING_DEFAULT_HOURS[newTiming];
+                        if (defaultTime && editDate) {
+                          const datePart = editDate.split("T")[0];
+                          setEditDate(`${datePart}T${defaultTime}`);
+                        }
+                      }}
                       className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
                     >
                       {TIMING_OPTIONS.map(opt => (
