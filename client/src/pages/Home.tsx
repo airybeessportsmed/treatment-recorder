@@ -532,6 +532,23 @@ export default function Home() {
     });
   };
 
+  const handleReplaceEditBodyPart = (oldKey: string, newKey: string) => {
+    if (oldKey === newKey) return;
+    if (editBodyParts.includes(newKey)) {
+      toast.error("その部位は既に選択されています");
+      return;
+    }
+    setEditBodyParts(prev => prev.map(k => k === oldKey ? newKey : k));
+    setEditTreatmentDetails(prev => {
+      const next = { ...prev };
+      if (next[oldKey]) {
+        next[newKey] = next[oldKey];
+        delete next[oldKey];
+      }
+      return next;
+    });
+  };
+
   // Form state
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [bodyParts, setBodyParts] = useState<string[]>([]);
@@ -648,6 +665,39 @@ export default function Home() {
         }));
         return [...prev, key];
       }
+    });
+  };
+
+  const handleReplaceBodyPart = (oldKey: string, newKey: string) => {
+    if (oldKey === newKey) return;
+    if (bodyParts.includes(newKey)) {
+      toast.error("その部位は既に選択されています");
+      return;
+    }
+    setBodyParts(prev => prev.map(k => k === oldKey ? newKey : k));
+    setTreatmentDetails(prev => {
+      const next = { ...prev };
+      if (next[oldKey]) {
+        next[newKey] = next[oldKey];
+        delete next[oldKey];
+      }
+      return next;
+    });
+    setAnnotations(prev => {
+      const next = { ...prev };
+      if (next[oldKey]) {
+        next[newKey] = next[oldKey];
+        delete next[oldKey];
+      }
+      return next;
+    });
+    setSelectedCategoryForPart(prev => {
+      const next = { ...prev };
+      if (next[oldKey]) {
+        next[newKey] = next[oldKey];
+        delete next[oldKey];
+      }
+      return next;
     });
   };
 
@@ -1225,7 +1275,17 @@ export default function Home() {
                               <div className="flex items-center justify-between mb-3 pb-2 border-b border-border/50">
                                 <div className="flex items-center gap-2">
                                   <span className="h-2 w-2 rounded-full bg-primary" />
-                                  <span className="font-semibold text-sm">{getBodyPartLabel(partKey)}</span>
+                                  <select
+                                    value={partKey}
+                                    onChange={(e) => handleReplaceBodyPart(partKey, e.target.value)}
+                                    className="font-semibold text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                                  >
+                                    {BODY_PARTS.map(part => (
+                                      <option key={part.key} value={part.key}>
+                                        {part.label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   {/* Hand-draw button */}
@@ -2079,7 +2139,17 @@ export default function Home() {
                         return (
                           <div key={partKey} className="p-3 border rounded-xl bg-card space-y-2.5 relative">
                             <div className="flex items-center justify-between border-b pb-1.5">
-                              <span className="text-xs font-bold">{getBodyPartLabel(partKey)}</span>
+                              <select
+                                value={partKey}
+                                onChange={(e) => handleReplaceEditBodyPart(partKey, e.target.value)}
+                                className="font-bold text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                              >
+                                {BODY_PARTS.map(part => (
+                                  <option key={part.key} value={part.key}>
+                                    {part.label}
+                                  </option>
+                                ))}
+                              </select>
                               <Button
                                 variant="ghost"
                                 size="icon"
