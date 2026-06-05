@@ -130,6 +130,23 @@ export default function Records() {
     });
   };
 
+  const handleReplaceEditBodyPart = (oldKey: string, newKey: string) => {
+    if (oldKey === newKey) return;
+    if (editBodyParts.includes(newKey)) {
+      toast.error("その部位は既に選択されています");
+      return;
+    }
+    setEditBodyParts(prev => prev.map(k => k === oldKey ? newKey : k));
+    setEditTreatmentDetails(prev => {
+      const next = { ...prev };
+      if (next[oldKey]) {
+        next[newKey] = next[oldKey];
+        delete next[oldKey];
+      }
+      return next;
+    });
+  };
+
   const getPlayerName = (playerId: number) => {
     return players?.find(p => p.id === playerId)?.name ?? "不明";
   };
@@ -608,7 +625,17 @@ export default function Records() {
                         return (
                           <div key={partKey} className="p-3 border rounded-xl bg-card space-y-2.5 relative">
                             <div className="flex items-center justify-between border-b pb-1.5">
-                              <span className="text-xs font-bold">{getBodyPartLabel(partKey)}</span>
+                              <select
+                                value={partKey}
+                                onChange={(e) => handleReplaceEditBodyPart(partKey, e.target.value)}
+                                className="font-bold text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                              >
+                                {BODY_PARTS.map(part => (
+                                  <option key={part.key} value={part.key}>
+                                    {part.label}
+                                  </option>
+                                ))}
+                              </select>
                               <Button
                                 variant="ghost"
                                 size="icon"
