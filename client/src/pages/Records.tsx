@@ -19,6 +19,7 @@ import {
   BODY_PARTS,
   TREATMENT_TYPES,
   TIMING_OPTIONS,
+  TIMING_DEFAULT_HOURS,
 } from "../../../shared/constants";
 import { ClipboardList, Loader2, Trash2, Eye, Filter, X, Calendar, Pencil, User, RotateCcw, Save } from "lucide-react";
 import AnnotationViewer from "@/components/AnnotationViewer";
@@ -461,7 +462,15 @@ export default function Records() {
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">タイミング</label>
                     <select
                       value={editTiming}
-                      onChange={(e) => setEditTiming(e.target.value)}
+                      onChange={(e) => {
+                        const newTiming = e.target.value;
+                        setEditTiming(newTiming);
+                        const defaultTime = TIMING_DEFAULT_HOURS[newTiming];
+                        if (defaultTime && editDate) {
+                          const datePart = editDate.split("T")[0];
+                          setEditDate(`${datePart}T${defaultTime}`);
+                        }
+                      }}
                       className="rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
                     >
                       {TIMING_OPTIONS.map(opt => (
