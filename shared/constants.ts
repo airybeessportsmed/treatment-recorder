@@ -117,13 +117,24 @@ export interface TimingDef {
 }
 
 export const TIMING_OPTIONS: TimingDef[] = [
-  { key: "before_practice", label: "練習前", icon: "Sunrise" },
-  { key: "during_practice", label: "練習中", icon: "Sun" },
-  { key: "after_practice", label: "練習後", icon: "Sunset" },
+  { key: "am_before_practice", label: "AM練習前", icon: "Sunrise" },
+  { key: "am_after_practice", label: "AM練習後", icon: "Sun" },
+  { key: "pm_before_practice", label: "PM練習前", icon: "Sun" },
+  { key: "pm_after_practice", label: "PM練習後", icon: "Sunset" },
   { key: "before_match", label: "試合前", icon: "Trophy" },
   { key: "after_match", label: "試合後", icon: "Medal" },
-  { key: "other", label: "その他", icon: "Clock" },
+  { key: "during_practice", label: "練習中", icon: "Clock" },
 ];
+
+export const TIMING_DEFAULT_HOURS: Record<string, string> = {
+  am_before_practice: "09:00",
+  am_after_practice: "12:00",
+  pm_before_practice: "14:00",
+  pm_after_practice: "17:00",
+  before_match: "10:00",
+  after_match: "18:00",
+  during_practice: "14:00",
+};
 
 // ===== Duration Presets =====
 export const DURATION_PRESETS = [5, 10, 15, 20, 30, 45, 60] as const;
@@ -147,7 +158,15 @@ export function getTreatmentTypeLabel(key: string): string {
 }
 
 export function getTimingLabel(key: string): string {
-  return TIMING_OPTIONS.find(t => t.key === key)?.label ?? key;
+  const labelMap: Record<string, string> = {
+    before_practice: "練習前",
+    during_practice: "練習中",
+    after_practice: "練習後",
+    before_match: "試合前",
+    after_match: "試合後",
+    other: "その他"
+  };
+  return TIMING_OPTIONS.find(t => t.key === key)?.label ?? labelMap[key] ?? key;
 }
 
 export function getPositionLabel(key: string): string {
