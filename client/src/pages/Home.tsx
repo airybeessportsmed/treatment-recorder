@@ -28,6 +28,7 @@ import BodyMap from "@/components/BodyMap";
 import AnnotationCanvas, { type AnnotationData } from "@/components/AnnotationCanvas";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  BODY_PARTS,
   TREATMENT_TYPES,
   TREATMENT_CATEGORIES,
   TIMING_OPTIONS,
