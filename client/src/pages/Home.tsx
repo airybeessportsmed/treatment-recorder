@@ -112,6 +112,68 @@ export default function Home() {
   const { data: treatmentsData, isLoading: treatmentsLoading } = trpc.treatment.list.useQuery({
     limit: 100,
   });
+  const { data: trainers } = trpc.auth.listTrainers.useQuery();
+
+  // Color configuration mapping for trainers (sync with Schedules.tsx heatmap colors)
+  const trainerColorMap = useMemo(() => {
+    const colors = [
+      { name: "red", bgLight: "bg-red-500/10 dark:bg-red-500/15", text: "text-red-600 dark:text-red-400", border: "border-red-500/20", dotColor: "bg-red-400" },
+      { name: "emerald", bgLight: "bg-emerald-500/10 dark:bg-emerald-500/15", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/20", dotColor: "bg-emerald-400" },
+      { name: "amber", bgLight: "bg-amber-500/10 dark:bg-amber-500/15", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", dotColor: "bg-amber-400" },
+      { name: "blue", bgLight: "bg-blue-500/10 dark:bg-blue-500/15", text: "text-blue-600 dark:text-blue-400", border: "border-blue-500/20", dotColor: "bg-blue-400" },
+      { name: "indigo", bgLight: "bg-indigo-500/10 dark:bg-indigo-500/15", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-500/20", dotColor: "bg-indigo-400" },
+      { name: "violet", bgLight: "bg-violet-500/10 dark:bg-violet-500/15", text: "text-violet-600 dark:text-violet-400", border: "border-violet-500/20", dotColor: "bg-violet-400" },
+    ];
+
+    const map: Record<string, typeof colors[0]> = {};
+    const standardTrainers = ["Miya", "Shima", "Toshi"];
+    
+    standardTrainers.forEach((name, idx) => {
+      map[name] = colors[idx];
+    });
+
+    if (trainers) {
+      trainers.forEach((t, index) => {
+        const name = t.name || "";
+        if (standardTrainers.includes(name)) return; // skip fixed
+        const lower = name.toLowerCase();
+        if (lower.includes("miya")) {
+          map[name] = colors[0];
+        } else if (lower.includes("shima")) {
+          map[name] = colors[1];
+        } else if (lower.includes("toshi")) {
+          map[name] = colors[2];
+        } else {
+          map[name] = colors[(index + 3) % colors.length];
+        }
+      });
+    }
+
+    return map;
+  }, [trainers]);
+
+  // Render custom trainer name badge with corresponding colors
+  const renderTrainerBadge = (name: string) => {
+    const colorConfig = trainerColorMap[name] || {
+      bgLight: "bg-muted",
+      text: "text-muted-foreground",
+      border: "border-border"
+    };
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          "text-[9px] px-1.5 py-0 border font-semibold flex items-center gap-0.5 shrink-0 rounded-md shadow-sm",
+          colorConfig.bgLight,
+          colorConfig.text,
+          colorConfig.border
+        )}
+      >
+        <User className="h-2.5 w-2.5 shrink-0" />
+        {name}
+      </Badge>
+    );
+  };
 
   // Calculate 7-day range starting from today for dashboard schedule
   const dashboardDateRange = useMemo(() => {
@@ -192,10 +254,17 @@ export default function Home() {
             numbers.push(parseInt(m[1], 10));
           }
 
+          const colorConfig = trainerColorMap[trainerName] || {
+            bgLight: "bg-accent/20",
+            text: "text-indigo-500 dark:text-indigo-400",
+            border: "border-accent-foreground/5",
+            dotColor: "bg-indigo-400"
+          };
+
           return (
-            <div key={idx} className="bg-accent/20 border border-accent-foreground/5 py-0.5 px-1 rounded text-left space-y-0.5">
-              <div className="text-[8px] font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-0.5 truncate">
-                <span className="h-1 w-1 rounded-full bg-indigo-400 shrink-0" />
+            <div key={idx} className={cn("border py-0.5 px-1 rounded text-left space-y-0.5", colorConfig.bgLight, colorConfig.border)}>
+              <div className={cn("text-[8px] font-bold flex items-center gap-0.5 truncate", colorConfig.text)}>
+                <span className={cn("h-1 w-1 rounded-full shrink-0", colorConfig.dotColor)} />
                 {trainerName}
               </div>
               <div className="flex flex-wrap gap-0.5">
@@ -1070,6 +1139,12 @@ export default function Home() {
                   <div className="space-y-2">
                     {treatmentsData.rows.slice(0, 5).map(record => {
                       const sev = (record as any).severity || "normal";
+                      const trainerName = (record as any).createdByName ?? "不明";
+                      const colorConfig = trainerColorMap[trainerName] || {
+                        bgLight: "bg-primary/10",
+                        text: "text-primary",
+                        border: "border-border/40"
+                      };
                       return (
                         <div
                           key={record.id}
@@ -1083,11 +1158,11 @@ export default function Home() {
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={cn(
-                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                              sev === "out" ? "bg-red-500/15 text-red-500 font-extrabold"
-                                : sev === "limited" ? "bg-amber-500/15 text-amber-500 font-extrabold"
-                                : sev === "caution" ? "bg-blue-500/15 text-blue-500 font-extrabold"
-                                : "bg-primary/10 text-primary"
+                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors border",
+                              sev === "out" ? "bg-red-500/15 text-red-500 border-red-500/20 font-extrabold"
+                                : sev === "limited" ? "bg-amber-500/15 text-amber-500 border-amber-500/20 font-extrabold"
+                                : sev === "caution" ? "bg-blue-500/15 text-blue-500 border-blue-500/20 font-extrabold"
+                                : cn(colorConfig.bgLight, colorConfig.text, colorConfig.border)
                             )}>
                               <span className="text-[10px] font-bold">
                                 #{getPlayerNumber(record.playerId)}
@@ -1115,12 +1190,18 @@ export default function Home() {
                                   <Calendar className="h-2.5 w-2.5" />
                                   {format(new Date(record.treatmentDate), "MM/dd HH:mm", { locale: ja })}
                                 </span>
-                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0">
-                                  <User className="h-2.5 w-2.5" />
-                                  {(record as any).createdByName ?? "不明"}
-                                </span>
+                                {renderTrainerBadge(trainerName)}
                                 {record.bodyParts && (record.bodyParts as string[]).slice(0, 2).map((bp: string) => (
-                                  <Badge key={bp} variant="secondary" className="text-[9px] px-1 py-0 font-normal">
+                                  <Badge 
+                                    key={bp} 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-[9px] px-1 py-0 font-normal border",
+                                      colorConfig.bgLight,
+                                      colorConfig.text,
+                                      colorConfig.border
+                                    )}
+                                  >
                                     {getBodyPartLabel(bp)}
                                   </Badge>
                                 ))}

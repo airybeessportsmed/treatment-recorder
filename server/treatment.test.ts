@@ -318,7 +318,7 @@ describe("shared constants", () => {
   it("has timing options defined", async () => {
     const { TIMING_OPTIONS } = await import("../shared/constants");
     expect(TIMING_OPTIONS.length).toBeGreaterThanOrEqual(5);
-    expect(TIMING_OPTIONS.some(t => t.key === "before_practice")).toBe(true);
+    expect(TIMING_OPTIONS.some(t => t.key === "am_before_practice")).toBe(true);
     expect(TIMING_OPTIONS.some(t => t.key === "after_match")).toBe(true);
   });
 
