@@ -97,13 +97,13 @@ export default function Schedules() {
     dateTo: dateRange[dateRange.length - 1],
   });
 
-  // Calculate 14 days date range for statistics (from -14 to -1 relative to today)
+  // Calculate 14 days date range for statistics (from -10 to +3 relative to today)
   const statsDateRange = useMemo(() => {
     const dates = [];
     const baseDate = new Date();
-    for (let i = 14; i >= 1; i--) {
+    for (let i = -10; i <= 3; i++) {
       const d = new Date(baseDate);
-      d.setDate(baseDate.getDate() - i);
+      d.setDate(baseDate.getDate() + i);
       const offset = d.getTimezoneOffset();
       const localD = new Date(d.getTime() - (offset * 60 * 1000));
       dates.push(localD.toISOString().split("T")[0]);
@@ -811,17 +811,17 @@ export default function Schedules() {
         </div>
       </div>
 
-      {/* 📊 過去14日間のトリートメント集計ヒートマップ */}
+      {/* 📊 トリートメント集計・ヒートマップ (14日間) */}
       <Card className="shadow-lg border border-border/80 overflow-hidden relative mt-6">
         <div className="absolute top-0 right-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
         <CardHeader className="pb-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/20">
           <div>
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
               <Users className="h-5 w-5 text-indigo-500" />
-              過去14日間のトリートメント集計・ヒートマップ
+              トリートメント集計・ヒートマップ (14日間)
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              今日から過去14日間の予定（濃い色）と、予定になかったが実際に行った治療（薄い色）をスタッフ別に一覧・集計します。
+              10日前から当日、および3日後までの予定（濃い色）と、実際に行った治療（薄い色）をスタッフ別に一覧・集計します。
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground bg-background px-3 py-2 rounded-xl border">
@@ -870,11 +870,15 @@ export default function Schedules() {
                   {/* ヘッダー1行目：選手、日付相対、トレーナー名、合計 */}
                   <tr className="bg-muted/40 border-b border-border/80 text-muted-foreground font-bold text-center">
                     <th className="py-2.5 px-3 text-left w-36 bg-background/50 border-r shrink-0">選手</th>
-                    {statsDateRange.map((_, idx) => (
-                      <th key={idx} className="p-1.5 text-center min-w-[32px] font-mono border-r">
-                        -{14 - idx}
-                      </th>
-                    ))}
+                    {statsDateRange.map((_, idx) => {
+                      const rel = idx - 10;
+                      const label = rel === 0 ? "今日" : rel > 0 ? `+${rel}` : `${rel}`;
+                      return (
+                        <th key={idx} className="p-1.5 text-center min-w-[32px] font-mono border-r text-[9px]">
+                          {label}
+                        </th>
+                      );
+                    })}
                     {statsMatrix.activeTrainers.map(t => {
                       const colorConfig = trainerColorMap[t];
                       return (
