@@ -2358,7 +2358,7 @@ export default function Home() {
               </div>
             ) : (
               /* 📋 High-Fidelity Static View Mode */
-              <div className="space-y-4 py-2">
+              <div className="space-y-4 py-2 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">選手</p>
