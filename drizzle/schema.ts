@@ -87,3 +87,24 @@ export const schedules = mysqlTable("schedules", {
 export type Schedule = typeof schedules.$inferSelect;
 export type InsertSchedule = typeof schedules.$inferInsert;
 
+/**
+ * Exercises table - 提供されたエクササイズ (セルフケア、コレクティブ、リコンディショニング等)
+ */
+export const exercises = mysqlTable("exercises", {
+  id: int("id").autoincrement().primaryKey(),
+  playerId: int("playerId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // self_care, collective, rehab, other
+  type: varchar("type", { length: 100 }), // ストレッチ, 体幹トレーニング等
+  frequency: varchar("frequency", { length: 255 }), // 週3回, 毎日練習前等
+  points: text("points"), // 目的・ポイント
+  mediaUrls: json("mediaUrls").$type<string[]>(), // 添付メディア(画像・動画)URLの配列
+  createdBy: int("createdBy").notNull(), // 登録したトレーナーID
+  providedDate: timestamp("providedDate").notNull(), // 提供日
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Exercise = typeof exercises.$inferSelect;
+export type InsertExercise = typeof exercises.$inferInsert;
+

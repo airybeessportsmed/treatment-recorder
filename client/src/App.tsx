@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Records from "./pages/Records";
 import Players from "./pages/Players";
 import Schedules from "./pages/Schedules";
+import Exercises from "./pages/Exercises";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
         <Route path={"/records"} component={Records} />
         <Route path={"/players"} component={Players} />
         <Route path={"/schedules"} component={Schedules} />
+        <Route path={"/exercises"} component={Exercises} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

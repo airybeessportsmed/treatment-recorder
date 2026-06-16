@@ -1,7 +1,7 @@
 import { eq, desc, and, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, players, treatments, schedules, type InsertPlayer, type InsertTreatment } from "../drizzle/schema";
+import { InsertUser, users, players, treatments, schedules, exercises, type InsertPlayer, type InsertTreatment, type InsertExercise } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -318,5 +318,88 @@ export async function upsertSchedule(data: {
       assignments: data.assignments ?? null,
     });
   }
+}
+
+// ===== Exercise Helpers =====
+
+export async function createExercise(data: Omit<InsertExercise, "id" | "createdAt" | "updatedAt">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(exercises).values(data);
+  return { id: result[0].insertId };
+}
+
+export async function getExercises(filters: {
+  playerId?: number;
+  category?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const conditions: any[] = [];
+
+  if (filters.playerId) {
+    conditions.push(eq(exercises.playerId, filters.playerId));
+  }
+  if (filters.category) {
+    conditions.push(eq(exercises.category, filters.category));
+  }
+
+  return db.select({
+    id: exercises.id,
+    playerId: exercises.playerId,
+    title: exercises.title,
+    category: exercises.category,
+    type: exercises.type,
+    frequency: exercises.frequency,
+    points: exercises.points,
+    mediaUrls: exercises.mediaUrls,
+    createdBy: exercises.createdBy,
+    createdByName: users.name,
+    providedDate: exercises.providedDate,
+    createdAt: exercises.createdAt,
+    updatedAt: exercises.updatedAt,
+  })
+  .from(exercises)
+  .leftJoin(users, eq(exercises.createdBy, users.id))
+  .where(conditions.length > 0 ? and(...conditions) : undefined)
+  .orderBy(desc(exercises.providedDate));
+}
+
+export async function getExerciseById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select({
+    id: exercises.id,
+    playerId: exercises.playerId,
+    title: exercises.title,
+    category: exercises.category,
+    type: exercises.type,
+    frequency: exercises.frequency,
+    points: exercises.points,
+    mediaUrls: exercises.mediaUrls,
+    createdBy: exercises.createdBy,
+    createdByName: users.name,
+    providedDate: exercises.providedDate,
+    createdAt: exercises.createdAt,
+    updatedAt: exercises.updatedAt,
+  })
+  .from(exercises)
+  .leftJoin(users, eq(exercises.createdBy, users.id))
+  .where(eq(exercises.id, id))
+  .limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateExercise(id: number, data: Partial<Omit<InsertExercise, "id" | "createdAt" | "updatedAt" | "createdBy">>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(exercises).set(data).where(eq(exercises.id, id));
+}
+
+export async function deleteExercise(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(exercises).where(eq(exercises.id, id));
 }
 

@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import * as db from "../db";
+import { storagePut } from "../storage";
 import { sdk } from "./sdk";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
@@ -74,6 +75,29 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // File Upload API (Base64 to Storage Proxy)
+  app.post("/api/upload", async (req, res) => {
+    try {
+      const { name, type, base64 } = req.body;
+      if (!name || !type || !base64) {
+        res.status(400).json({ error: "Missing name, type, or base64" });
+        return;
+      }
+
+      const buffer = Buffer.from(base64, "base64");
+      const timestamp = Date.now();
+      const cleanName = name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const storageKey = `exercises/${timestamp}_${cleanName}`;
+
+      const result = await storagePut(storageKey, buffer, type);
+
+      res.json({ url: result.url });
+    } catch (error: any) {
+      console.error("[Upload API] Failed:", error);
+      res.status(500).json({ error: error.message || "Upload failed" });
+    }
+  });
 
   // Bypass authentication and log in as the configured owner or selected trainer
   app.get("/api/mock-login", async (req, res) => {

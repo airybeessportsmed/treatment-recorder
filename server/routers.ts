@@ -246,6 +246,76 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+
+  // ===== Exercise Management =====
+  exercise: router({
+    list: protectedProcedure
+      .input(z.object({
+        playerId: z.number().int().optional(),
+        category: z.string().optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        return db.getExercises({
+          playerId: input?.playerId,
+          category: input?.category,
+        });
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        playerId: z.number().int(),
+        title: z.string().min(1).max(255),
+        category: z.string().min(1).max(50),
+        type: z.string().max(100).nullable().optional(),
+        frequency: z.string().max(255).nullable().optional(),
+        points: z.string().nullable().optional(),
+        mediaUrls: z.array(z.string()).optional(),
+        providedDate: z.date(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return db.createExercise({
+          ...input,
+          type: input.type ?? null,
+          frequency: input.frequency ?? null,
+          points: input.points ?? null,
+          mediaUrls: input.mediaUrls ?? null,
+          createdBy: ctx.user.id,
+        });
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number().int(),
+        playerId: z.number().int().optional(),
+        title: z.string().min(1).max(255).optional(),
+        category: z.string().min(1).max(50).optional(),
+        type: z.string().max(100).nullable().optional(),
+        frequency: z.string().max(255).nullable().optional(),
+        points: z.string().nullable().optional(),
+        mediaUrls: z.array(z.string()).nullable().optional(),
+        providedDate: z.date().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const exercise = await db.getExerciseById(input.id);
+        if (!exercise) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "エクササイズ記録が見つかりません" });
+        }
+        const { id, ...data } = input;
+        await db.updateExercise(id, data);
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const exercise = await db.getExerciseById(input.id);
+        if (!exercise) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "エクササイズ記録が見つかりません" });
+        }
+        await db.deleteExercise(input.id);
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
