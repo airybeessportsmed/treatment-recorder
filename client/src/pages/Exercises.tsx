@@ -26,7 +26,11 @@ import {
   X,
   PlusCircle,
   Video,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 const CATEGORY_OPTIONS = [
@@ -48,6 +52,7 @@ export default function Exercises() {
   // Selected state
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | "all">("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [showCompleted, setShowCompleted] = useState(false); // 完了メニューの表示切替
 
   // Queries
   const { data: players, isLoading: playersLoading } = trpc.player.list.useQuery();
@@ -55,10 +60,14 @@ export default function Exercises() {
     playerId: selectedPlayerId === "all" ? undefined : selectedPlayerId,
     category: selectedCategory === "all" ? undefined : selectedCategory,
   });
+  
+  // Load trainers to build color configuration map
+  const { data: trainers } = trpc.auth.listTrainers.useQuery();
 
   // Dialog & Form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [isCompletedState, setIsCompletedState] = useState(false);
   
   const [category, setCategory] = useState("self_care");
   const [providedDate, setProvidedDate] = useState(() => {
@@ -83,13 +92,58 @@ export default function Exercises() {
   // Lightbox State
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  // Trainer Color Configuration Map (Synced with Schedules page)
+  const trainerColorMap = useMemo(() => {
+    const colors = [
+      { name: "red", bgStrong: "bg-red-500", bgLight: "bg-red-100 dark:bg-red-950/30", text: "text-red-700 dark:text-red-300", border: "border-red-500/20", leftBar: "border-l-red-500" },
+      { name: "emerald", bgStrong: "bg-emerald-500", bgLight: "bg-emerald-100 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-500/20", leftBar: "border-l-emerald-500" },
+      { name: "amber", bgStrong: "bg-amber-500", bgLight: "bg-amber-100 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-500/20", leftBar: "border-l-amber-500" },
+      { name: "blue", bgStrong: "bg-blue-500", bgLight: "bg-blue-100 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", border: "border-blue-500/20", leftBar: "border-l-blue-500" },
+      { name: "indigo", bgStrong: "bg-indigo-500", bgLight: "bg-indigo-100 dark:bg-indigo-950/30", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-500/20", leftBar: "border-l-indigo-500" },
+      { name: "violet", bgStrong: "bg-violet-500", bgLight: "bg-violet-100 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-300", border: "border-violet-500/20", leftBar: "border-l-violet-500" },
+    ];
+
+    const map: Record<string, typeof colors[0]> = {};
+    const standardTrainers = ["Miya", "Shima", "Toshi"];
+    
+    standardTrainers.forEach((name, idx) => {
+      map[name] = colors[idx];
+    });
+
+    if (trainers) {
+      trainers.forEach((t, index) => {
+        const name = t.name || "";
+        if (standardTrainers.includes(name)) return; // skip fixed
+        const lower = name.toLowerCase();
+        if (lower.includes("miya")) {
+          map[name] = colors[0];
+        } else if (lower.includes("shima")) {
+          map[name] = colors[1];
+        } else if (lower.includes("toshi")) {
+          map[name] = colors[2];
+        } else {
+          map[name] = colors[(index + 3) % colors.length];
+        }
+      });
+    }
+    return map;
+  }, [trainers]);
+
+  const getTrainerStyle = (trainerName: string) => {
+    return trainerColorMap[trainerName] || {
+      bgLight: "bg-muted/40",
+      text: "text-muted-foreground",
+      border: "border-border",
+      leftBar: "border-l-muted-foreground/30"
+    };
+  };
+
   // Group exercises by sessionId
   const groupedSessions = useMemo(() => {
     if (!exercises) return [];
     const groups: { [key: string]: any } = {};
 
     exercises.forEach(ex => {
-      // Legacy compatibility
       const key = ex.sessionId || `legacy-${new Date(ex.providedDate).getTime()}-${ex.playerId}-${ex.category}`;
 
       if (!groups[key]) {
@@ -99,14 +153,31 @@ export default function Exercises() {
           playerId: ex.playerId,
           category: ex.category,
           providedDate: ex.providedDate,
+          isCompleted: ex.isCompleted === 1,
           createdBy: ex.createdBy,
           createdByName: ex.createdByName,
+          createdAt: ex.createdAt,
+          updatedAt: ex.updatedAt,
           exercises: [],
-          mediaUrls: [] // Session-wide mediaマージ用
+          mediaUrls: []
         };
       }
 
-      // Merge unique media URLs into the session
+      // Track the earliest createdAt and latest updatedAt
+      const exCreatedAt = new Date(ex.createdAt).getTime();
+      const exUpdatedAt = new Date(ex.updatedAt).getTime();
+      const groupCreatedAt = new Date(groups[key].createdAt).getTime();
+      const groupUpdatedAt = new Date(groups[key].updatedAt).getTime();
+
+      if (exCreatedAt < groupCreatedAt) groups[key].createdAt = ex.createdAt;
+      if (exUpdatedAt > groupUpdatedAt) groups[key].updatedAt = ex.updatedAt;
+
+      // Group complete status logic
+      if (ex.isCompleted === 1) {
+        groups[key].isCompleted = true;
+      }
+
+      // Merge unique media URLs
       if (ex.mediaUrls && Array.isArray(ex.mediaUrls)) {
         ex.mediaUrls.forEach((url: string) => {
           if (!groups[key].mediaUrls.includes(url)) {
@@ -127,6 +198,16 @@ export default function Exercises() {
       return new Date(b.providedDate).getTime() - new Date(a.providedDate).getTime();
     });
   }, [exercises]);
+
+  // Filter based on completion visibility setting
+  const filteredSessions = useMemo(() => {
+    return groupedSessions.filter((session: any) => {
+      if (!showCompleted && session.isCompleted) {
+        return false;
+      }
+      return true;
+    });
+  }, [groupedSessions, showCompleted]);
 
   // Mutations
   const createExercise = trpc.exercise.create.useMutation({
@@ -164,8 +245,19 @@ export default function Exercises() {
     }
   });
 
+  const toggleComplete = trpc.exercise.toggleComplete.useMutation({
+    onSuccess: (res, variables) => {
+      toast.success(variables.isCompleted ? "エクササイズを完了にしました" : "エクササイズを未完了に戻しました");
+      utils.exercise.list.invalidate();
+    },
+    onError: (err) => {
+      toast.error("エラーが発生しました: " + err.message);
+    }
+  });
+
   const resetForm = () => {
     setEditingSessionId(null);
+    setIsCompletedState(false);
     setCategory("self_care");
     setExercisesFormList([{ title: "", points: "" }]);
     setMediaUrls([]);
@@ -178,6 +270,7 @@ export default function Exercises() {
 
   const handleEditClick = (session: any) => {
     setEditingSessionId(session.sessionId);
+    setIsCompletedState(session.isCompleted);
     setCategory(session.category);
     setProvidedDate(session.providedDate ? new Date(session.providedDate).toISOString().slice(0, 10) : "");
     setMediaUrls(session.mediaUrls || []);
@@ -291,7 +384,8 @@ export default function Exercises() {
       playerId: Number(selectedPlayerId),
       category,
       providedDate: new Date(providedDate + "T00:00:00.000Z"),
-      mediaUrls, // Session-wide
+      mediaUrls,
+      isCompleted: isCompletedState,
       exercises: exercisesFormList.map(item => ({
         title: item.title,
         points: item.points || null,
@@ -316,6 +410,44 @@ export default function Exercises() {
   const isVideo = (url: string) => {
     const lower = url.toLowerCase();
     return lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mov") || lower.includes("video");
+  };
+
+  // Helper to determine New or Updated Badge
+  const getSessionBadge = (session: any) => {
+    const now = new Date().getTime();
+    const createdTime = new Date(session.createdAt).getTime();
+    const updatedTime = new Date(session.updatedAt).getTime();
+    
+    // 24 hour standard
+    const dayInMs = 24 * 60 * 60 * 1000;
+    
+    const isNew = (now - createdTime) < dayInMs;
+    // Over 5 seconds difference to differentiate immediate creations
+    const isUpdated = (now - updatedTime) < dayInMs && (updatedTime - createdTime) > 5000;
+
+    if (session.isCompleted) {
+      return (
+        <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-[9px] font-bold px-1.5 py-0.5">
+          完了
+        </Badge>
+      );
+    }
+
+    if (isNew && !isUpdated) {
+      return (
+        <Badge className="bg-sky-500 hover:bg-sky-500 text-white border-0 text-[9px] font-bold px-1.5 py-0.5 shadow-sm">
+          新規
+        </Badge>
+      );
+    }
+    if (isUpdated) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-500 text-black border-0 text-[9px] font-bold px-1.5 py-0.5 shadow-sm">
+          更新
+        </Badge>
+      );
+    }
+    return null;
   };
 
   return (
@@ -353,7 +485,8 @@ export default function Exercises() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 bg-accent/5 p-3 rounded-2xl border">
+              {/* Date & Category: Changed grid settings to avoid overlap on small screens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-accent/5 p-3.5 rounded-2xl border">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground block">提供日</label>
                   <input
@@ -579,33 +712,50 @@ export default function Exercises() {
 
         {/* Right Side: Main Exercise Content */}
         <div className="md:col-span-3 space-y-4">
-          {/* Category Filter Tab Header */}
-          <div className="flex flex-wrap gap-1.5 border-b pb-2">
-            <button
-              onClick={() => setSelectedCategory("all")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border",
-                selectedCategory === "all"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background border-border text-muted-foreground hover:bg-accent"
-              )}
-            >
-              全部表示
-            </button>
-            {CATEGORY_OPTIONS.map(opt => (
+          
+          {/* Category Filter Tab Header & Show Completed Switch */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-2">
+            <div className="flex flex-wrap gap-1.5">
               <button
-                key={opt.key}
-                onClick={() => setSelectedCategory(opt.key)}
+                onClick={() => setSelectedCategory("all")}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border",
-                  selectedCategory === opt.key
+                  selectedCategory === "all"
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background border-border text-muted-foreground hover:bg-accent"
                 )}
               >
-                {opt.label}
+                全部表示
               </button>
-            ))}
+              {CATEGORY_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setSelectedCategory(opt.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border",
+                    selectedCategory === opt.key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Visibility Toggle for completed exercises */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCompleted(!showCompleted)}
+              className={cn(
+                "rounded-xl h-8 gap-1.5 text-xs font-semibold",
+                showCompleted ? "bg-primary/5 border-primary/45 text-primary" : "text-muted-foreground"
+              )}
+            >
+              {showCompleted ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {showCompleted ? "完了分を表示中" : "完了分を非表示"}
+            </Button>
           </div>
 
           {/* Grouped Exercise List */}
@@ -614,18 +764,40 @@ export default function Exercises() {
               <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
               <p className="text-xs text-muted-foreground font-semibold">メニューを読み込み中...</p>
             </div>
-          ) : groupedSessions.length > 0 ? (
+          ) : filteredSessions.length > 0 ? (
             <div className="space-y-4">
-              {groupedSessions.map((session: any) => {
+              {filteredSessions.map((session: any) => {
                 const catInfo = CATEGORY_OPTIONS.find(c => c.key === session.category);
+                const trainerStyle = getTrainerStyle(session.createdByName);
+                
                 return (
                   <Card
                     key={session.sessionId}
-                    className="overflow-hidden hover:shadow-md transition-all duration-200 border border-border/80 flex flex-col bg-card"
+                    className={cn(
+                      "overflow-hidden hover:shadow-md transition-all duration-200 border-l-4 flex flex-col bg-card",
+                      session.isCompleted ? "opacity-60 bg-muted/20" : "",
+                      trainerStyle.leftBar
+                    )}
                   >
                     <CardHeader className="pb-3 border-b bg-muted/5 p-4 flex flex-row items-center justify-between gap-4">
-                      <div className="flex flex-col gap-1 flex-1">
+                      <div className="flex flex-col gap-1.5 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Completion Toggle checkbox icon */}
+                          <button
+                            onClick={() => toggleComplete.mutate({ sessionId: session.sessionId, isCompleted: !session.isCompleted })}
+                            className={cn(
+                              "p-0.5 rounded-full hover:bg-accent/40 transition-colors shrink-0 mr-1",
+                              session.isCompleted ? "text-emerald-500" : "text-muted-foreground/45"
+                            )}
+                            title={session.isCompleted ? "未完了に戻す" : "完了にする"}
+                          >
+                            {session.isCompleted ? (
+                              <CheckCircle2 className="h-5 w-5 fill-emerald-500/10" />
+                            ) : (
+                              <Circle className="h-5 w-5" />
+                            )}
+                          </button>
+
                           <Badge variant="outline" className={cn("text-[9px] font-bold px-2 py-0 border shrink-0", catInfo?.color)}>
                             {catInfo?.label || session.category}
                           </Badge>
@@ -635,6 +807,9 @@ export default function Exercises() {
                             <Calendar className="h-3 w-3" />
                             {format(new Date(session.providedDate), "yyyy/MM/dd (E)", { locale: ja })}
                           </span>
+
+                          {/* New / Updated Badge */}
+                          {getSessionBadge(session)}
                         </div>
 
                         {selectedPlayerId === "all" && (
@@ -645,10 +820,15 @@ export default function Exercises() {
                         )}
                       </div>
 
-                      {/* Trainer metadata & Actions */}
+                      {/* Trainer name with trainerColor map color styling & Actions */}
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium bg-accent/20 px-2 py-1 rounded-lg border">
-                          <User className="h-2.5 w-2.5 text-muted-foreground" />
+                        <span className={cn(
+                          "text-[10px] flex items-center gap-1 font-bold px-2 py-1 rounded-lg border shadow-sm",
+                          trainerStyle.bgLight,
+                          trainerStyle.text,
+                          trainerStyle.border
+                        )}>
+                          <User className="h-2.5 w-2.5" />
                           担当: {session.createdByName || "不明"}
                         </span>
                         
@@ -678,12 +858,18 @@ export default function Exercises() {
                       <div className="space-y-2">
                         {session.exercises.map((ex: any, idx: number) => (
                           <div key={ex.id || idx} className="bg-accent/5 p-3 rounded-xl border border-border/40 relative space-y-1">
-                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <span className={cn(
+                              "text-xs font-bold text-foreground flex items-center gap-1.5",
+                              session.isCompleted ? "line-through text-muted-foreground/60" : ""
+                            )}>
                               <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />
                               {ex.title}
                             </span>
                             {ex.points && (
-                              <p className="text-[11px] text-muted-foreground leading-relaxed pl-5 whitespace-pre-wrap">
+                              <p className={cn(
+                                "text-[11px] text-muted-foreground leading-relaxed pl-5 whitespace-pre-wrap",
+                                session.isCompleted ? "line-through text-muted-foreground/50" : ""
+                              )}>
                                 {ex.points}
                               </p>
                             )}
@@ -733,7 +919,7 @@ export default function Exercises() {
             <Card className="border border-dashed py-16 flex flex-col items-center justify-center text-center bg-accent/5 rounded-2xl">
               <Dumbbell className="h-10 w-10 text-muted-foreground/30 mb-3" />
               <p className="text-sm font-semibold text-muted-foreground">
-                {selectedPlayerId === "all" ? "エクササイズがまだ登録されていません。" : "この選手にはまだエクササイズが提供されていません。"}
+                {selectedPlayerId === "all" ? "該当するエクササイズがまだ登録されていません。" : "この選手には該当するエクササイズが提供されていません。"}
               </p>
               {selectedPlayerId !== "all" && (
                 <Button onClick={() => setIsDialogOpen(true)} variant="link" className="text-xs text-primary font-semibold mt-1.5 p-0">

@@ -355,6 +355,7 @@ export async function getExercises(filters: {
     frequency: exercises.frequency,
     points: exercises.points,
     mediaUrls: exercises.mediaUrls,
+    isCompleted: exercises.isCompleted,
     createdBy: exercises.createdBy,
     createdByName: users.name,
     providedDate: exercises.providedDate,
@@ -374,6 +375,7 @@ export async function updateExercisesBySession(
   providedDate: Date,
   createdBy: number,
   mediaUrls: string[] | null,
+  isCompleted: number,
   dataList: { title: string; points: string | null }[]
 ) {
   const db = await getDb();
@@ -391,6 +393,7 @@ export async function updateExercisesBySession(
       category,
       points: item.points,
       mediaUrls: mediaUrls,
+      isCompleted: isCompleted,
       createdBy,
       providedDate,
       type: null,
@@ -407,6 +410,14 @@ export async function deleteExercisesBySession(sessionId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(exercises).where(eq(exercises.sessionId, sessionId));
+  return { success: true };
+}
+
+export async function toggleExerciseSessionComplete(sessionId: string, isCompleted: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const val = isCompleted ? 1 : 0;
+  await db.update(exercises).set({ isCompleted: val }).where(eq(exercises.sessionId, sessionId));
   return { success: true };
 }
 

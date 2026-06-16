@@ -282,6 +282,7 @@ export const appRouter = router({
           points: item.points ?? null,
           mediaUrls: input.mediaUrls ?? null,
           providedDate: input.providedDate,
+          isCompleted: 0,
           createdBy: ctx.user.id,
           type: null,
           frequency: null,
@@ -296,6 +297,7 @@ export const appRouter = router({
         category: z.string().min(1).max(50),
         providedDate: z.date(),
         mediaUrls: z.array(z.string()).optional(),
+        isCompleted: z.boolean().optional(),
         exercises: z.array(z.object({
           title: z.string().min(1).max(255),
           points: z.string().nullable().optional(),
@@ -309,6 +311,7 @@ export const appRouter = router({
           input.providedDate,
           ctx.user.id,
           input.mediaUrls ?? null,
+          input.isCompleted ? 1 : 0,
           input.exercises.map(item => ({
             title: item.title,
             points: item.points ?? null,
@@ -320,6 +323,15 @@ export const appRouter = router({
       .input(z.object({ sessionId: z.string().min(1) }))
       .mutation(async ({ input }) => {
         return db.deleteExercisesBySession(input.sessionId);
+      }),
+
+    toggleComplete: protectedProcedure
+      .input(z.object({
+        sessionId: z.string().min(1),
+        isCompleted: z.boolean(),
+      }))
+      .mutation(async ({ input }) => {
+        return db.toggleExerciseSessionComplete(input.sessionId, input.isCompleted);
       }),
   }),
 });

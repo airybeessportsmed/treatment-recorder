@@ -102,6 +102,7 @@ export const exercises = mysqlTable("exercises", {
   mediaUrls: json("mediaUrls").$type<string[]>(), // 添付メディア(画像・動画)URLの配列
   createdBy: int("createdBy").notNull(), // 登録したトレーナーID
   providedDate: timestamp("providedDate").notNull(), // 提供日
+  isCompleted: int("isCompleted").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

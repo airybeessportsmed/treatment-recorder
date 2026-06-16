@@ -43,6 +43,13 @@
       "when": 1781589600354,
       "tag": "0005_clever_clint_barton",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1781592170180,
+      "tag": "0006_keen_inertia",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `exercises` ADD `isCompleted` int DEFAULT 0 NOT NULL;
