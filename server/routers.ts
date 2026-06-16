@@ -150,7 +150,7 @@ export const appRouter = router({
           .sort((a, b) => b.count - a.count);
 
         const recentSOAP = treatments.slice(0, 3).map((t: any) => ({
-          date: t.providedDate,
+          date: t.treatmentDate,
           createdByName: t.createdByName,
           severity: t.severity,
           soapS: t.soapS,
