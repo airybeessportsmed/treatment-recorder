@@ -151,7 +151,7 @@ export async function createTreatment(data: Omit<InsertTreatment, "id" | "create
 }
 
 export async function getTreatments(filters: {
-  createdBy: number;
+  createdBy?: number;
   playerId?: number;
   dateFrom?: Date;
   dateTo?: Date;
