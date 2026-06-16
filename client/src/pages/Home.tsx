@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { PlayerSummaryDialog } from "@/components/PlayerSummaryDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +23,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import AnnotationViewer from "@/components/AnnotationViewer";
 import { toast } from "sonner";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import BodyMap from "@/components/BodyMap";
 import AnnotationCanvas, { type AnnotationData } from "@/components/AnnotationCanvas";
@@ -86,6 +87,7 @@ import {
   Printer,
   FileText,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
 
 // Icon mapping
@@ -731,6 +733,40 @@ export default function Home() {
   // Category tabs active selections for hybrid mode (key: bodyPartKey, value: categoryKey)
   const [selectedCategoryForPart, setSelectedCategoryForPart] = useState<Record<string, string>>({});
 
+  // 選手サマリーダイアログ用の状態
+  const [summaryPlayerId, setSummaryPlayerId] = useState<number | null>(null);
+  const [isSummaryOpen, setIsSummaryOpen] = useState<boolean>(false);
+
+  // 選手名ボタンのロングプレス（長押し）イベントハンドラ
+  const longPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef<boolean>(false);
+
+  const handleStartLongPress = (pId: number) => {
+    isLongPressRef.current = false;
+    longPressTimeoutRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      setSummaryPlayerId(pId);
+      setIsSummaryOpen(true);
+    }, 500);
+  };
+
+  const handleEndLongPress = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const handlePlayerClick = (pId: number, e: React.MouseEvent) => {
+    if (isLongPressRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      isLongPressRef.current = false;
+      return;
+    }
+    setPlayerId(pId);
+  };
+
   // 5大固定処置ベース + 自動頻度上位3項目のハイブリッドクイック処置リスト
   const FIXED_QUICK_TREATMENTS = ["massage", "mobilization", "electrotherapy", "acupuncture", "reconditioning"];
   const quickTreatments = useMemo(() => {
@@ -1327,6 +1363,18 @@ export default function Home() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mr-1"
+                            onClick={() => {
+                              setSummaryPlayerId(record.playerId);
+                              setIsSummaryOpen(true);
+                            }}
+                            title="経過サマリーを表示"
+                          >
+                            <TrendingUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                             onClick={() => setDetailId(record.id)}
                           >
@@ -1398,9 +1446,14 @@ export default function Home() {
                       {players.map(p => (
                         <button
                           key={p.id}
-                          onClick={() => setPlayerId(p.id)}
+                          onMouseDown={() => handleStartLongPress(p.id)}
+                          onMouseUp={handleEndLongPress}
+                          onMouseLeave={handleEndLongPress}
+                          onTouchStart={() => handleStartLongPress(p.id)}
+                          onTouchEnd={handleEndLongPress}
+                          onClick={(e) => handlePlayerClick(p.id, e)}
                           className={cn(
-                            "flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all text-left",
+                            "flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all text-left select-none",
                             playerId === p.id
                               ? "border-primary bg-primary/5 text-primary shadow-sm"
                               : "border-border hover:border-primary/30 hover:bg-accent/50"
@@ -2110,14 +2163,28 @@ export default function Home() {
                                 )}
                               </td>
                               <td className="py-2 px-3 text-center print:hidden">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                  onClick={() => setDetailId(record.id)}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                    onClick={() => {
+                                      setSummaryPlayerId(record.playerId);
+                                      setIsSummaryOpen(true);
+                                    }}
+                                    title="経過サマリーを表示"
+                                  >
+                                    <TrendingUp className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setDetailId(record.id)}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -2664,6 +2731,15 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PlayerSummaryDialog
+        playerId={summaryPlayerId}
+        isOpen={isSummaryOpen}
+        onClose={() => {
+          setIsSummaryOpen(false);
+          setSummaryPlayerId(null);
+        }}
+      />
     </div>
   );
 }
