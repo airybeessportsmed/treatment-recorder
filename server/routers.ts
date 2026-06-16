@@ -264,56 +264,62 @@ export const appRouter = router({
     create: protectedProcedure
       .input(z.object({
         playerId: z.number().int(),
-        title: z.string().min(1).max(255),
         category: z.string().min(1).max(50),
-        type: z.string().max(100).nullable().optional(),
-        frequency: z.string().max(255).nullable().optional(),
-        points: z.string().nullable().optional(),
-        mediaUrls: z.array(z.string()).optional(),
         providedDate: z.date(),
+        exercises: z.array(z.object({
+          title: z.string().min(1).max(255),
+          points: z.string().nullable().optional(),
+          mediaUrls: z.array(z.string()).optional(),
+        })).min(1),
       }))
       .mutation(async ({ ctx, input }) => {
-        return db.createExercise({
-          ...input,
-          type: input.type ?? null,
-          frequency: input.frequency ?? null,
-          points: input.points ?? null,
-          mediaUrls: input.mediaUrls ?? null,
+        const sessionId = crypto.randomUUID();
+        const dataList = input.exercises.map(item => ({
+          playerId: input.playerId,
+          sessionId,
+          title: item.title,
+          category: input.category,
+          points: item.points ?? null,
+          mediaUrls: item.mediaUrls ?? null,
+          providedDate: input.providedDate,
           createdBy: ctx.user.id,
-        });
+          type: null,
+          frequency: null,
+        }));
+        return db.createExercises(dataList);
       }),
 
     update: protectedProcedure
       .input(z.object({
-        id: z.number().int(),
-        playerId: z.number().int().optional(),
-        title: z.string().min(1).max(255).optional(),
-        category: z.string().min(1).max(50).optional(),
-        type: z.string().max(100).nullable().optional(),
-        frequency: z.string().max(255).nullable().optional(),
-        points: z.string().nullable().optional(),
-        mediaUrls: z.array(z.string()).nullable().optional(),
-        providedDate: z.date().optional(),
+        sessionId: z.string().min(1),
+        playerId: z.number().int(),
+        category: z.string().min(1).max(50),
+        providedDate: z.date(),
+        exercises: z.array(z.object({
+          title: z.string().min(1).max(255),
+          points: z.string().nullable().optional(),
+          mediaUrls: z.array(z.string()).optional(),
+        })).min(1),
       }))
-      .mutation(async ({ input }) => {
-        const exercise = await db.getExerciseById(input.id);
-        if (!exercise) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "エクササイズ記録が見つかりません" });
-        }
-        const { id, ...data } = input;
-        await db.updateExercise(id, data);
-        return { success: true };
+      .mutation(async ({ ctx, input }) => {
+        return db.updateExercisesBySession(
+          input.sessionId,
+          input.playerId,
+          input.category,
+          input.providedDate,
+          ctx.user.id,
+          input.exercises.map(item => ({
+            title: item.title,
+            points: item.points ?? null,
+            mediaUrls: item.mediaUrls ?? null,
+          }))
+        );
       }),
 
     delete: protectedProcedure
-      .input(z.object({ id: z.number().int() }))
+      .input(z.object({ sessionId: z.string().min(1) }))
       .mutation(async ({ input }) => {
-        const exercise = await db.getExerciseById(input.id);
-        if (!exercise) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "エクササイズ記録が見つかりません" });
-        }
-        await db.deleteExercise(input.id);
-        return { success: true };
+        return db.deleteExercisesBySession(input.sessionId);
       }),
   }),
 });

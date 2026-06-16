@@ -93,6 +93,7 @@ export type InsertSchedule = typeof schedules.$inferInsert;
 export const exercises = mysqlTable("exercises", {
   id: int("id").autoincrement().primaryKey(),
   playerId: int("playerId").notNull(),
+  sessionId: varchar("sessionId", { length: 50 }).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   category: varchar("category", { length: 50 }).notNull(), // self_care, collective, rehab, other
   type: varchar("type", { length: 100 }), // ストレッチ, 体幹トレーニング等

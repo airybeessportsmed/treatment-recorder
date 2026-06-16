@@ -1,0 +1,1 @@
+ALTER TABLE `exercises` ADD `sessionId` varchar(50) NOT NULL;

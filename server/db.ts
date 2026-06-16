@@ -322,11 +322,11 @@ export async function upsertSchedule(data: {
 
 // ===== Exercise Helpers =====
 
-export async function createExercise(data: Omit<InsertExercise, "id" | "createdAt" | "updatedAt">) {
+export async function createExercises(dataList: Omit<InsertExercise, "id" | "createdAt" | "updatedAt">[]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(exercises).values(data);
-  return { id: result[0].insertId };
+  await db.insert(exercises).values(dataList);
+  return { success: true };
 }
 
 export async function getExercises(filters: {
@@ -348,6 +348,7 @@ export async function getExercises(filters: {
   return db.select({
     id: exercises.id,
     playerId: exercises.playerId,
+    sessionId: exercises.sessionId,
     title: exercises.title,
     category: exercises.category,
     type: exercises.type,
@@ -366,40 +367,45 @@ export async function getExercises(filters: {
   .orderBy(desc(exercises.providedDate));
 }
 
-export async function getExerciseById(id: number) {
+export async function updateExercisesBySession(
+  sessionId: string,
+  playerId: number,
+  category: string,
+  providedDate: Date,
+  createdBy: number,
+  dataList: { title: string; points: string | null; mediaUrls: string[] | null }[]
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select({
-    id: exercises.id,
-    playerId: exercises.playerId,
-    title: exercises.title,
-    category: exercises.category,
-    type: exercises.type,
-    frequency: exercises.frequency,
-    points: exercises.points,
-    mediaUrls: exercises.mediaUrls,
-    createdBy: exercises.createdBy,
-    createdByName: users.name,
-    providedDate: exercises.providedDate,
-    createdAt: exercises.createdAt,
-    updatedAt: exercises.updatedAt,
-  })
-  .from(exercises)
-  .leftJoin(users, eq(exercises.createdBy, users.id))
-  .where(eq(exercises.id, id))
-  .limit(1);
-  return result[0] ?? null;
+
+  await db.transaction(async (tx) => {
+    // 1. 既存の sessionId に紐づくレコードを物理削除
+    await tx.delete(exercises).where(eq(exercises.sessionId, sessionId));
+
+    // 2. 新しいデータをインサート
+    const inserts = dataList.map(item => ({
+      playerId,
+      sessionId,
+      title: item.title,
+      category,
+      points: item.points,
+      mediaUrls: item.mediaUrls,
+      createdBy,
+      providedDate,
+      type: null,
+      frequency: null,
+    }));
+    if (inserts.length > 0) {
+      await tx.insert(exercises).values(inserts);
+    }
+  });
+  return { success: true };
 }
 
-export async function updateExercise(id: number, data: Partial<Omit<InsertExercise, "id" | "createdAt" | "updatedAt" | "createdBy">>) {
+export async function deleteExercisesBySession(sessionId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(exercises).set(data).where(eq(exercises.id, id));
-}
-
-export async function deleteExercise(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.delete(exercises).where(eq(exercises.id, id));
+  await db.delete(exercises).where(eq(exercises.sessionId, sessionId));
+  return { success: true };
 }
 
