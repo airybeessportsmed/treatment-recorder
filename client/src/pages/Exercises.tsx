@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { PlayerSummaryDialog } from "@/components/PlayerSummaryDialog";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +31,8 @@ import {
   CheckCircle2,
   Circle,
   Eye,
-  EyeOff
+  EyeOff,
+  TrendingUp
 } from "lucide-react";
 
 const CATEGORY_OPTIONS = [
@@ -91,6 +93,10 @@ export default function Exercises() {
 
   // Lightbox State
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Summary Dialog State
+  const [summaryPlayerId, setSummaryPlayerId] = useState<number | null>(null);
+  const [isSummaryOpen, setIsSummaryOpen] = useState<boolean>(false);
 
   // Trainer Color Configuration Map (Synced with Schedules page)
   const trainerColorMap = useMemo(() => {
@@ -690,21 +696,34 @@ export default function Exercises() {
               </div>
             ) : (
               players?.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPlayerId(p.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all border flex items-center gap-2",
-                    selectedPlayerId === p.id
-                      ? "bg-primary/5 text-primary border-primary/30 font-bold"
-                      : "border-transparent hover:bg-accent/40 text-foreground"
-                  )}
-                >
-                  <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] shrink-0 font-bold">
-                    #{p.number}
-                  </span>
-                  <span className="truncate">{p.name}</span>
-                </button>
+                <div key={p.id} className="flex items-center gap-1 w-full justify-between">
+                  <button
+                    onClick={() => setSelectedPlayerId(p.id)}
+                    className={cn(
+                      "flex-1 text-left px-3 py-2 rounded-xl text-xs font-medium transition-all border flex items-center gap-2 truncate",
+                      selectedPlayerId === p.id
+                        ? "bg-primary/5 text-primary border-primary/30 font-bold"
+                        : "border-transparent hover:bg-accent/40 text-foreground"
+                    )}
+                  >
+                    <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] shrink-0 font-bold">
+                      #{p.number}
+                    </span>
+                    <span className="truncate">{p.name}</span>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0 rounded-xl"
+                    onClick={() => {
+                      setSummaryPlayerId(p.id);
+                      setIsSummaryOpen(true);
+                    }}
+                    title="経過サマリーを表示"
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               ))
             )}
           </CardContent>
@@ -962,6 +981,15 @@ export default function Exercises() {
           </DialogContent>
         </Dialog>
       )}
+
+      <PlayerSummaryDialog
+        playerId={summaryPlayerId}
+        isOpen={isSummaryOpen}
+        onClose={() => {
+          setIsSummaryOpen(false);
+          setSummaryPlayerId(null);
+        }}
+      />
     </div>
   );
 }
