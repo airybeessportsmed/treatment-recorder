@@ -779,6 +779,22 @@ export default function Home() {
     setPlayerId(pId);
   };
 
+  // 3日以内のアップデート項目を抽出するロジック（なければ最新1件を表示）
+  const updatesToShow = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const recent = UPDATE_HISTORY.filter(item => {
+      const updateDate = new Date(item.date);
+      updateDate.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - updateDate.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 3;
+    });
+
+    return recent.length > 0 ? recent : [UPDATE_HISTORY[0]];
+  }, []);
+
   // 5大固定処置ベース + 自動頻度上位3項目のハイブリッドクイック処置リスト
   const FIXED_QUICK_TREATMENTS = ["massage", "mobilization", "electrotherapy", "acupuncture", "reconditioning"];
   const quickTreatments = useMemo(() => {
@@ -1056,20 +1072,24 @@ export default function Home() {
         {/* 📊 Dashboard Tab Content */}
         <TabsContent value="dashboard" className="space-y-6 outline-none">
           {/* 最新のアップデート情報バナー */}
-          <div className="bg-sky-500/5 hover:bg-sky-500/10 transition-colors border border-sky-500/15 dark:border-sky-500/10 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs shadow-sm">
-            <div className="flex items-center gap-2 truncate">
-              <span className="flex h-2 w-2 rounded-full bg-sky-500 shrink-0 animate-ping" />
-              <span className="font-bold text-sky-700 dark:text-sky-400 shrink-0 bg-sky-500/10 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                {UPDATE_HISTORY[0].version}
-              </span>
-              <p className="text-sky-850 dark:text-sky-300 truncate font-semibold">
-                アップデート：{UPDATE_HISTORY[0].title}
-              </p>
+          <div className="bg-sky-500/5 border border-sky-500/15 dark:border-sky-500/10 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+            <div className="flex-1 space-y-1.5 overflow-hidden">
+              {updatesToShow.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 truncate">
+                  <span className="flex h-2 w-2 rounded-full bg-sky-500 shrink-0 animate-ping" />
+                  <span className="font-bold text-sky-700 dark:text-sky-400 shrink-0 bg-sky-500/10 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                    {item.version}
+                  </span>
+                  <p className="text-sky-850 dark:text-sky-300 truncate font-semibold">
+                    アップデート：{item.title}
+                  </p>
+                </div>
+              ))}
             </div>
             <button
               type="button"
               onClick={() => setIsUpdateDialogOpen(true)}
-              className="text-primary hover:underline font-bold shrink-0 flex items-center gap-1 text-[11px]"
+              className="text-primary hover:underline font-bold shrink-0 flex items-center gap-1 text-[11px] self-end sm:self-center pt-1 sm:pt-0"
             >
               更新履歴を見る ➔
             </button>
