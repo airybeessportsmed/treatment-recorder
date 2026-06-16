@@ -126,7 +126,10 @@ export function PlayerSummaryDialog({
                     <ScrollArea className="h-[250px] pr-3">
                       <div className="space-y-4">
                         {summary.recentSOAP.map((soap: any, idx: number) => {
-                          const dateStr = format(new Date(soap.date), "yyyy/MM/dd");
+                          const dateVal = soap.date ? new Date(soap.date) : null;
+                          const dateStr = dateVal && !isNaN(dateVal.getTime())
+                            ? format(dateVal, "yyyy/MM/dd")
+                            : "日付不明";
                           return (
                             <div key={idx} className="border-l-2 border-primary/30 pl-3 py-1 space-y-1">
                               <div className="flex items-center justify-between text-[11px] text-muted-foreground">
