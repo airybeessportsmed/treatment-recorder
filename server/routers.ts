@@ -96,6 +96,97 @@ export const appRouter = router({
         await db.deletePlayer(input.id);
         return { success: true };
       }),
+
+    getSummary: protectedProcedure
+      .input(z.object({ playerId: z.number().int() }))
+      .query(async ({ input }) => {
+        const player = await db.getPlayerById(input.playerId);
+        if (!player) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "選手が見つかりません" });
+        }
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const treatmentsResult = await db.getTreatments({
+          playerId: input.playerId,
+          dateFrom: thirtyDaysAgo,
+        });
+        const treatments = treatmentsResult.rows;
+
+        const exercises = await db.getExercises({
+          playerId: input.playerId,
+        });
+        const recentExercises = exercises.filter(
+          (ex: any) => new Date(ex.providedDate).getTime() >= thirtyDaysAgo.getTime()
+        );
+
+        const partCounts: Record<string, number> = {};
+        treatments.forEach((t: any) => {
+          if (t.bodyParts && Array.isArray(t.bodyParts)) {
+            t.bodyParts.forEach((bp: string) => {
+              partCounts[bp] = (partCounts[bp] || 0) + 1;
+            });
+          }
+        });
+        const bodyPartStats = Object.entries(partCounts)
+          .map(([part, count]) => ({ part, count }))
+          .sort((a, b) => b.count - a.count);
+
+        const typeCounts: Record<string, number> = {};
+        treatments.forEach((t: any) => {
+          if (t.treatmentDetails && typeof t.treatmentDetails === "object") {
+            Object.values(t.treatmentDetails).forEach((detail: any) => {
+              if (detail && Array.isArray(detail.treatmentTypes)) {
+                detail.treatmentTypes.forEach((type: string) => {
+                  typeCounts[type] = (typeCounts[type] || 0) + 1;
+                });
+              }
+            });
+          }
+        });
+        const treatmentTypeStats = Object.entries(typeCounts)
+          .map(([type, count]) => ({ type, count }))
+          .sort((a, b) => b.count - a.count);
+
+        const recentSOAP = treatments.slice(0, 3).map((t: any) => ({
+          date: t.providedDate,
+          createdByName: t.createdByName,
+          severity: t.severity,
+          soapS: t.soapS,
+          soapO: t.soapO,
+          soapA: t.soapA,
+          soapP: t.soapP,
+          comment: t.comment,
+        }));
+
+        const uniqueExercisesMap: Record<string, any> = {};
+        recentExercises.forEach((ex: any) => {
+          if (!uniqueExercisesMap[ex.title] || new Date(ex.providedDate).getTime() > new Date(uniqueExercisesMap[ex.title].providedDate).getTime()) {
+            uniqueExercisesMap[ex.title] = {
+              title: ex.title,
+              category: ex.category,
+              points: ex.points,
+              providedDate: ex.providedDate,
+            };
+          }
+        });
+        const activeExercises = Object.values(uniqueExercisesMap).sort(
+          (a: any, b: any) => new Date(b.providedDate).getTime() - new Date(a.providedDate).getTime()
+        );
+
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          playerNumber: player.number,
+          playerPosition: player.position,
+          totalTreatments: treatments.length,
+          bodyPartStats,
+          treatmentTypeStats,
+          recentSOAP,
+          activeExercises,
+        };
+      }),
   }),
 
   // ===== Treatment Records =====
