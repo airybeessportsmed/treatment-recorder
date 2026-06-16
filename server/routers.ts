@@ -266,10 +266,10 @@ export const appRouter = router({
         playerId: z.number().int(),
         category: z.string().min(1).max(50),
         providedDate: z.date(),
+        mediaUrls: z.array(z.string()).optional(),
         exercises: z.array(z.object({
           title: z.string().min(1).max(255),
           points: z.string().nullable().optional(),
-          mediaUrls: z.array(z.string()).optional(),
         })).min(1),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -280,7 +280,7 @@ export const appRouter = router({
           title: item.title,
           category: input.category,
           points: item.points ?? null,
-          mediaUrls: item.mediaUrls ?? null,
+          mediaUrls: input.mediaUrls ?? null,
           providedDate: input.providedDate,
           createdBy: ctx.user.id,
           type: null,
@@ -295,10 +295,10 @@ export const appRouter = router({
         playerId: z.number().int(),
         category: z.string().min(1).max(50),
         providedDate: z.date(),
+        mediaUrls: z.array(z.string()).optional(),
         exercises: z.array(z.object({
           title: z.string().min(1).max(255),
           points: z.string().nullable().optional(),
-          mediaUrls: z.array(z.string()).optional(),
         })).min(1),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -308,10 +308,10 @@ export const appRouter = router({
           input.category,
           input.providedDate,
           ctx.user.id,
+          input.mediaUrls ?? null,
           input.exercises.map(item => ({
             title: item.title,
             points: item.points ?? null,
-            mediaUrls: item.mediaUrls ?? null,
           }))
         );
       }),

@@ -373,7 +373,8 @@ export async function updateExercisesBySession(
   category: string,
   providedDate: Date,
   createdBy: number,
-  dataList: { title: string; points: string | null; mediaUrls: string[] | null }[]
+  mediaUrls: string[] | null,
+  dataList: { title: string; points: string | null }[]
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -389,7 +390,7 @@ export async function updateExercisesBySession(
       title: item.title,
       category,
       points: item.points,
-      mediaUrls: item.mediaUrls,
+      mediaUrls: mediaUrls,
       createdBy,
       providedDate,
       type: null,
