@@ -972,18 +972,18 @@ export default function Home() {
     const allTypes = Array.from(
       new Set(Object.values(treatmentDetails).flatMap(d => d.treatmentTypes))
     );
-    // Get the maximum duration across all body parts as global duration fallback
-    const maxDuration = Object.values(treatmentDetails).reduce(
-      (max, d) => Math.max(max, d.duration),
-      15
-    );
+    // Get the total duration across all body parts
+    const totalDuration = Object.values(treatmentDetails).reduce(
+      (sum, d) => sum + d.duration,
+      0
+    ) || 15;
 
     createTreatment.mutate({
       playerId,
       bodyParts,
       treatmentTypes: allTypes.length > 0 ? allTypes : ["other"],
       timing,
-      duration: maxDuration,
+      duration: totalDuration,
       soapS: soapS || undefined,
       soapO: soapO || undefined,
       soapA: soapA || undefined,
