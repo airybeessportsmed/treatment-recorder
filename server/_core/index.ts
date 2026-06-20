@@ -67,6 +67,15 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   
+  // Temporary unauthenticated debug endpoint to check DB configuration
+  app.get("/debug-db", (req, res) => {
+    res.json({
+      databaseUrl: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ":****@") : "not set",
+      nodeEnv: process.env.NODE_ENV,
+      basicAuthUser: process.env.BASIC_AUTH_USER ? "****" : "default"
+    });
+  });
+
   // Protect all static assets and APIs with Basic Auth
   app.use(basicAuth);
 
