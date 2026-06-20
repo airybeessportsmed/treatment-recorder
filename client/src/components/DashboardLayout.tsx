@@ -21,7 +21,26 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { ClipboardPlus, List, Users, LogOut, PanelLeft, Activity, UserPlus, User, ArrowRight, Trash2, Calendar, Dumbbell } from "lucide-react";
+import { 
+  ClipboardPlus, 
+  List, 
+  Users, 
+  LogOut, 
+  PanelLeft, 
+  Activity, 
+  UserPlus, 
+  User, 
+  ArrowRight, 
+  Trash2, 
+  Calendar, 
+  Dumbbell, 
+  ChevronDown, 
+  BarChart2, 
+  ClipboardList, 
+  Camera, 
+  Database,
+  ChevronsUpDown
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -31,13 +50,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { toast } from "sonner";
+import { useAppMode } from "../contexts/AppModeContext";
 
-const menuItems = [
+const treatmentMenuItems = [
   { icon: ClipboardPlus, label: "記録する", path: "/" },
   { icon: List, label: "記録一覧", path: "/records" },
   { icon: Users, label: "選手管理", path: "/players" },
   { icon: Calendar, label: "スケジュール管理", path: "/schedules" },
   { icon: Dumbbell, label: "エクササイズ共有", path: "/exercises" },
+];
+
+const trainingMenuItems = [
+  { icon: BarChart2, label: "ダッシュボード", path: "/training/dashboard" },
+  { icon: ClipboardList, label: "プログラム一覧", path: "/training/programs" },
+  { icon: List, label: "実施記録一覧", path: "/training/records" },
+  { icon: Database, label: "種目マスタ管理", path: "/training/exercise-master" },
+  { icon: Camera, label: "OCRインポート", path: "/training/ocr" },
+  { icon: UserPlus, label: "アクセス承認管理", path: "/training/approvals" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -98,8 +127,21 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  
+  const { appMode, setAppMode } = useAppMode();
+  
+  const menuItems = appMode === "treatment" ? treatmentMenuItems : trainingMenuItems;
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  // Sync appMode when route location changes (e.g. wouter navigation)
+  useEffect(() => {
+    if (location.startsWith("/training") && appMode !== "training") {
+      setAppMode("training");
+    } else if (!location.startsWith("/training") && location !== "/404" && appMode !== "treatment") {
+      setAppMode("treatment");
+    }
+  }, [location, appMode, setAppMode]);
 
   // Profile Edit State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -187,13 +229,82 @@ function DashboardLayoutContent({
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
               {!isCollapsed ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Activity className="h-5 w-5 text-primary shrink-0" />
-                  <span className="font-semibold tracking-tight truncate text-sm">
-                    Treatment Rec
-                  </span>
+                <div className="min-w-0 flex-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center justify-between gap-1 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {appMode === "treatment" ? (
+                            <Activity className="h-4.5 w-4.5 text-primary shrink-0 animate-pulse" />
+                          ) : (
+                            <Dumbbell className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
+                          )}
+                          <span className="font-semibold tracking-tight truncate text-sm">
+                            {appMode === "treatment" ? "Treatment Rec" : "Training Log"}
+                          </span>
+                        </div>
+                        <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 bg-background border shadow-md">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setAppMode("treatment");
+                          setLocation("/");
+                        }}
+                        className={`cursor-pointer rounded-lg flex items-center gap-2 text-xs py-2 ${appMode === "treatment" ? "bg-accent text-accent-foreground font-medium" : ""}`}
+                      >
+                        <Activity className="h-4 w-4 text-primary" />
+                        <span>Treatment Rec (施術)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setAppMode("training");
+                          setLocation("/training/dashboard");
+                        }}
+                        className={`cursor-pointer rounded-lg flex items-center gap-2 text-xs py-2 ${appMode === "training" ? "bg-accent text-accent-foreground font-medium" : ""}`}
+                      >
+                        <Dumbbell className="h-4 w-4 text-emerald-500" />
+                        <span>Training Log (練習)</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              ) : null}
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0">
+                      {appMode === "treatment" ? (
+                        <Activity className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Dumbbell className="h-4 w-4 text-emerald-500" />
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 bg-background border shadow-md">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAppMode("treatment");
+                        setLocation("/");
+                      }}
+                      className="cursor-pointer rounded-lg flex items-center gap-2 text-xs py-2"
+                    >
+                      <Activity className="h-4 w-4 text-primary" />
+                      <span>Treatment Rec (施術)</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAppMode("training");
+                        setLocation("/training/dashboard");
+                      }}
+                      className="cursor-pointer rounded-lg flex items-center gap-2 text-xs py-2"
+                    >
+                      <Dumbbell className="h-4 w-4 text-emerald-500" />
+                      <span>Training Log (練習)</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </SidebarHeader>
 
