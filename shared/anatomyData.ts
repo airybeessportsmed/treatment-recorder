@@ -14,6 +14,7 @@ export interface AnatomySVGData {
     strokeWidth?: string | number;
     label?: string;
     landmark?: boolean; // 触診ランドマーク
+    strokeDasharray?: string;
   }>;
 }
 
