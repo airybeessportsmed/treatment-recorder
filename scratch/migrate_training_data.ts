@@ -43,7 +43,7 @@ async function main() {
         );
       } else {
         const [res] = await newConn.query(
-          'INSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO `users` (`openId`, `name`, `email`, `loginMethod`, `role`, `createdAt`, `updatedAt`, `lastSignedIn`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [ou.openId, ou.name, ou.email, ou.loginMethod, ou.role, ou.createdAt, ou.updatedAt, ou.lastSignedIn]
         ) as any;
         userMap.set(ou.id, res.insertId);
@@ -72,7 +72,7 @@ async function main() {
         const position = oa.position ?? '';
         const createdBy = 1; // デフォルト管理者ID
         const [res] = await newConn.query(
-          'INSERT INTO players (name, number, position, bodyWeight, notes, isActive, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)',
+          'INSERT INTO `players` (`name`, `number`, `position`, `bodyWeight`, `notes`, `isActive`, `createdBy`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)',
           [oa.name, number, position, oa.bodyWeight, oa.notes, createdBy, oa.createdAt, oa.updatedAt]
         ) as any;
         playerMap.set(oa.id, res.insertId);
@@ -92,7 +92,7 @@ async function main() {
         continue;
       }
       const [res] = await newConn.query(
-        'INSERT INTO programs (athleteId, date, phase, periodCategory, goal, bodyWeight, totalSets, notes, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO `programs` (`athleteId`, `date`, `phase`, `periodCategory`, `goal`, `bodyWeight`, `totalSets`, `notes`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [newPlayerId, op.date, op.phase, op.periodCategory, op.goal, op.bodyWeight, op.totalSets, op.notes, op.createdAt, op.updatedAt]
       ) as any;
       programMap.set(op.id, res.insertId);
@@ -111,7 +111,7 @@ async function main() {
         continue;
       }
       const [res] = await newConn.query(
-        'INSERT INTO sections (programId, category, sortOrder, createdAt) VALUES (?, ?, ?, ?)',
+        'INSERT INTO `sections` (`programId`, `category`, `sortOrder`, `createdAt`) VALUES (?, ?, ?, ?)',
         [newProgId, os.category, os.sortOrder, os.createdAt]
       ) as any;
       sectionMap.set(os.id, res.insertId);
@@ -130,7 +130,7 @@ async function main() {
         continue;
       }
       const [res] = await newConn.query(
-        'INSERT INTO training_exercises (sectionId, name, sets, reps, load, attention, sortOrder, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO `training_exercises` (`sectionId`, `name`, `sets`, `reps`, `load`, `attention`, `sortOrder`, `createdAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [newSecId, oe.name, oe.sets, oe.reps, oe.load, oe.attention, oe.sortOrder, oe.createdAt]
       ) as any;
       exerciseMap.set(oe.id, res.insertId);
@@ -153,7 +153,7 @@ async function main() {
       }
 
       await newConn.query(
-        'INSERT INTO records (programId, exerciseId, athleteId, date, actualSets, actualReps, actualLoad, notes, source, changeReason, changeNote, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO `records` (`programId`, `exerciseId`, `athleteId`, `date`, `actualSets`, `actualReps`, `actualLoad`, `notes`, `source`, `changeReason`, `changeNote`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [newProgId, newExeId, newPlayerId, or.date, or.actualSets, or.actualReps, or.actualLoad, or.notes, or.source, or.changeReason, or.changeNote, or.createdAt, or.updatedAt]
       );
       recordsMigrated++;
@@ -177,7 +177,7 @@ async function main() {
       const ocrParsedStr = op.ocrParsed ? (typeof op.ocrParsed === 'object' ? JSON.stringify(op.ocrParsed) : op.ocrParsed) : null;
 
       await newConn.query(
-        'INSERT INTO photos (programId, athleteId, date, fileUrl, fileKey, ocrRawResult, ocrParsed, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO `photos` (`programId`, `athleteId`, `date`, `fileUrl`, `fileKey`, `ocrRawResult`, `ocrParsed`, `status`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [newProgId, newPlayerId, op.date, op.fileUrl, op.fileKey, op.ocrRawResult, ocrParsedStr, op.status, op.createdAt, op.updatedAt]
       );
       photosMigrated++;
@@ -195,7 +195,7 @@ async function main() {
         await newConn.query('UPDATE exercise_master SET usageCount = usageCount + ? WHERE id = ?', [oem.usageCount, existing[0].id]);
       } else {
         await newConn.query(
-          'INSERT INTO exercise_master (name, category, defaultSets, defaultReps, defaultLoad, attention, usageCount, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO `exercise_master` (`name`, `category`, `defaultSets`, `defaultReps`, `defaultLoad`, `attention`, `usageCount`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [oem.name, oem.category, oem.defaultSets, oem.defaultReps, oem.defaultLoad, oem.attention, oem.usageCount, oem.createdAt, oem.updatedAt]
         );
         masterMigrated++;
@@ -225,7 +225,7 @@ async function main() {
         );
       } else {
         await newConn.query(
-          'INSERT INTO user_approvals (userId, status, approvedBy, approvedAt, note, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO `user_approvals` (`userId`, `status`, `approvedBy`, `approvedAt`, `note`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [newUserId, oa.status, newApprovedBy, oa.approvedAt, oa.note, oa.createdAt, oa.updatedAt]
         );
         approvalsMigrated++;
