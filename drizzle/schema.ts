@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, float } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -27,6 +27,8 @@ export const players = mysqlTable("players", {
   name: varchar("name", { length: 100 }).notNull(),
   number: int("number").notNull(),
   position: varchar("position", { length: 50 }).notNull(),
+  bodyWeight: float("bodyWeight"),
+  notes: text("notes"),
   isActive: int("isActive").default(1).notNull(),
   createdBy: int("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -35,6 +37,8 @@ export const players = mysqlTable("players", {
 
 export type Player = typeof players.$inferSelect;
 export type InsertPlayer = typeof players.$inferInsert;
+export type Athlete = Player;
+export type InsertAthlete = InsertPlayer;
 
 /**
  * Treatments table - トリートメント記録
@@ -57,9 +61,9 @@ export const treatments = mysqlTable("treatments", {
   soapP: text("soapP"),
   comment: text("comment"),
   /** JSON object: per-body-part drawing annotations { [bodyPartKey]: { view, strokes } } */
-  annotations: json("annotations").$type<Record<string, { view: string; strokes: Array<{ points: Array<{x: number; y: number}>; color: string; width: number }> }>>(),
+  annotations: json("annotations").$type<{ [key: string]: { view: string; strokes: Array<{ points: Array<{x: number; y: number}>; color: string; width: number }> } }>(),
   /** JSON object: per-body-part detailed treatments { [bodyPartKey]: { treatmentTypes: string[]; duration: number } } */
-  treatmentDetails: json("treatmentDetails").$type<Record<string, { treatmentTypes: string[]; duration: number }>>(),
+  treatmentDetails: json("treatmentDetails").$type<{ [key: string]: { treatmentTypes: string[]; duration: number } }>(),
   /** Severity status: out (離脱), limited (要制限), caution (要注意), normal (通常) */
   severity: varchar("severity", { length: 50 }).default("normal").notNull(),
   createdBy: int("createdBy").notNull(),
@@ -109,4 +113,119 @@ export const exercises = mysqlTable("exercises", {
 
 export type Exercise = typeof exercises.$inferSelect;
 export type InsertExercise = typeof exercises.$inferInsert;
+
+// ==========================================
+// トレーニング管理アプリから移植されたスキーマ
+// ==========================================
+
+export const programs = mysqlTable("programs", {
+  id: int("id").autoincrement().primaryKey(),
+  athleteId: int("athleteId").notNull(), // players.id を参照します
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  phase: varchar("phase", { length: 100 }),
+  periodCategory: varchar("periodCategory", { length: 100 }),
+  goal: text("goal"),
+  bodyWeight: float("bodyWeight"),
+  totalSets: int("totalSets"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Program = typeof programs.$inferSelect;
+export type InsertProgram = typeof programs.$inferInsert;
+
+export const sections = mysqlTable("sections", {
+  id: int("id").autoincrement().primaryKey(),
+  programId: int("programId").notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Section = typeof sections.$inferSelect;
+export type InsertSection = typeof sections.$inferInsert;
+
+// ※ 施術アプリの exercises と衝突するため、変数名を trainingExercises, 物理テーブル名を training_exercises に変更
+export const trainingExercises = mysqlTable("training_exercises", {
+  id: int("id").autoincrement().primaryKey(),
+  sectionId: int("sectionId").notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  sets: int("sets"),
+  reps: varchar("reps", { length: 50 }),
+  load: varchar("load", { length: 100 }),
+  attention: text("attention"),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TrainingExercise = typeof trainingExercises.$inferSelect;
+export type InsertTrainingExercise = typeof trainingExercises.$inferInsert;
+
+export const records = mysqlTable("records", {
+  id: int("id").autoincrement().primaryKey(),
+  programId: int("programId").notNull(),
+  exerciseId: int("exerciseId").notNull(), // trainingExercises.id を参照します
+  athleteId: int("athleteId").notNull(), // players.id を参照します
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  actualSets: int("actualSets"),
+  actualReps: varchar("actualReps", { length: 50 }),
+  actualLoad: varchar("actualLoad", { length: 100 }),
+  notes: text("notes"),
+  source: mysqlEnum("source", ["manual", "ocr"]).default("manual").notNull(),
+  changeReason: mysqlEnum("changeReason", ["condition", "injury", "technique", "plan", "other"]),
+  changeNote: text("changeNote"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Record = typeof records.$inferSelect;
+export type InsertRecord = typeof records.$inferInsert;
+
+export const photos = mysqlTable("photos", {
+  id: int("id").autoincrement().primaryKey(),
+  programId: int("programId").notNull(),
+  athleteId: int("athleteId").notNull(), // players.id を参照します
+  date: varchar("date", { length: 10 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  fileKey: varchar("fileKey", { length: 500 }).notNull(),
+  ocrRawResult: text("ocrRawResult"),
+  ocrParsed: json("ocrParsed"),
+  status: mysqlEnum("status", ["pending", "processing", "done", "error"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Photo = typeof photos.$inferSelect;
+export type InsertPhoto = typeof photos.$inferInsert;
+
+export const exerciseMaster = mysqlTable("exercise_master", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull().unique(),
+  category: varchar("category", { length: 50 }).notNull(),
+  defaultSets: int("defaultSets"),
+  defaultReps: varchar("defaultReps", { length: 50 }),
+  defaultLoad: varchar("defaultLoad", { length: 100 }),
+  attention: text("attention"),
+  usageCount: int("usageCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ExerciseMaster = typeof exerciseMaster.$inferSelect;
+export type InsertExerciseMaster = typeof exerciseMaster.$inferInsert;
+
+export const userApprovals = mysqlTable("user_approvals", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  approvedBy: int("approvedBy"),
+  approvedAt: timestamp("approvedAt"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserApproval = typeof userApprovals.$inferSelect;
+export type InsertUserApproval = typeof userApprovals.$inferInsert;
 
