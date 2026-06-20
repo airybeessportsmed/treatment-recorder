@@ -284,7 +284,7 @@ export default function Home() {
 
   // Calculate 7-day range starting from today for dashboard schedule
   const dashboardDateRange = useMemo(() => {
-    const dates = [];
+    const dates: string[] = [];
     const baseDate = new Date();
     for (let i = 0; i < 7; i++) {
       const d = new Date(baseDate);
@@ -304,7 +304,7 @@ export default function Home() {
 
   // Map schedules by date
   const dashboardSchedulesMap = useMemo(() => {
-    const map: Record<string, typeof dashboardSchedules[0]> = {};
+    const map: Record<string, any> = {};
     if (dashboardSchedules) {
       dashboardSchedules.forEach((s) => {
         map[s.date] = s;
