@@ -76,6 +76,16 @@ async function startServer() {
     });
   });
 
+  // Temporary unauthenticated debug endpoint to check current athlete query results
+  app.get("/debug-athletes", async (req, res) => {
+    try {
+      const athletes = await db_training.getAthletes();
+      res.json({ athletes });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Protect all static assets and APIs with Basic Auth
   app.use(basicAuth);
 
