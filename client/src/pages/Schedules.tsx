@@ -79,7 +79,7 @@ export default function Schedules() {
 
   // Calculate standard 7 days date range from selectedDate for preview list
   const dateRange = useMemo(() => {
-    const dates = [];
+    const dates: string[] = [];
     const baseDate = new Date(selectedDate);
     for (let i = -3; i <= 3; i++) {
       const d = new Date(baseDate);
@@ -99,7 +99,7 @@ export default function Schedules() {
 
   // Calculate 14 days date range for statistics (from -10 to +3 relative to today)
   const statsDateRange = useMemo(() => {
-    const dates = [];
+    const dates: string[] = [];
     const baseDate = new Date();
     for (let i = -10; i <= 3; i++) {
       const d = new Date(baseDate);
@@ -130,7 +130,7 @@ export default function Schedules() {
 
   // Map Loaded Schedule Data
   const schedulesMap = useMemo(() => {
-    const map: Record<string, typeof schedulesData[0]> = {};
+    const map: Record<string, any> = {};
     if (schedulesData) {
       schedulesData.forEach((s) => {
         map[s.date] = s;
