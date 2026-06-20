@@ -5,6 +5,728 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
+import * as db_training from "./db_training";
+import { invokeLLM, type Message } from "./_core/llm";
+import { storagePut, storageDelete } from "./storage";
+import { notifyOwner } from "./_core/notification";
+import { parseProgramsFromPDF } from "./pdfParser";
+import { parseProgramsFromExcel } from "./excelParser";
+
+// ==========================================
+// トレーニング管理アプリから移植された Zod スキーマ
+// ==========================================
+
+const athleteInput = z.object({
+  name: z.string().min(1),
+  number: z.number().optional(),
+  position: z.string().optional(),
+  bodyWeight: z.number().optional(),
+  notes: z.string().optional(),
+});
+
+const trainingExerciseInput = z.object({
+  name: z.string(),
+  sets: z.number().optional(),
+  reps: z.string().optional(),
+  load: z.string().optional(),
+  attention: z.string().optional(),
+  sortOrder: z.number().default(0),
+});
+
+const sectionInput = z.object({
+  category: z.string(),
+  sortOrder: z.number().default(0),
+  exercises: z.array(trainingExerciseInput),
+});
+
+const programInput = z.object({
+  athleteId: z.number(),
+  date: z.string(),
+  phase: z.string().optional(),
+  periodCategory: z.string().optional(),
+  goal: z.string().optional(),
+  bodyWeight: z.number().optional(),
+  totalSets: z.number().optional(),
+  notes: z.string().optional(),
+  sections: z.array(sectionInput),
+});
+
+const recordInput = z.object({
+  programId: z.number(),
+  exerciseId: z.number(),
+  athleteId: z.number(),
+  date: z.string(),
+  actualSets: z.number().optional(),
+  actualReps: z.string().optional(),
+  actualLoad: z.string().optional(),
+  notes: z.string().optional(),
+  source: z.enum(["manual", "ocr"]).default("manual"),
+  changeReason: z.enum(["condition", "injury", "technique", "plan", "other"]).optional(),
+  changeNote: z.string().optional(),
+});
+
+// ==========================================
+// トレーニング管理アプリから移植されたサブルーター
+// ==========================================
+
+const athletesRouter = router({
+  list: protectedProcedure.query(() => db_training.getAthletes()),
+
+  get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) =>
+    db_training.getAthleteById(input.id)
+  ),
+
+  create: protectedProcedure.input(athleteInput).mutation(async ({ ctx, input }) => {
+    const result = await db_training.createAthlete({
+      name: input.name,
+      number: input.number ?? 0,
+      position: input.position ?? "",
+      bodyWeight: input.bodyWeight,
+      notes: input.notes,
+      createdBy: ctx.user.id,
+    });
+    const id = (result as any)[0]?.insertId;
+    return { success: true, id };
+  }),
+
+  update: protectedProcedure
+    .input(z.object({ id: z.number(), data: athleteInput.partial() }))
+    .mutation(async ({ input }) => {
+      await db_training.updateAthlete(input.id, input.data);
+      return { success: true };
+    }),
+
+  delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    await db_training.deleteAthlete(input.id);
+    return { success: true };
+  }),
+});
+
+const programsRouter = router({
+  list: protectedProcedure
+    .input(z.object({ athleteId: z.number().optional() }))
+    .query(({ input }) => db_training.getPrograms(input.athleteId)),
+
+  get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) =>
+    db_training.getProgramWithDetails(input.id)
+  ),
+
+  create: protectedProcedure.input(programInput).mutation(async ({ ctx, input }) => {
+    const { sections: sectionData, ...programData } = input;
+    const result = await db_training.createProgram(programData);
+    const programs = await db_training.getPrograms(programData.athleteId);
+    const newProgram = programs[0];
+    if (newProgram) {
+      for (const sec of sectionData) {
+        const { exercises: exData, ...secData } = sec;
+        await db_training.createSection({ ...secData, programId: newProgram.id });
+        const secs = await db_training.getSectionsByProgramId(newProgram.id);
+        const newSec = secs.find(s => s.category === sec.category && s.sortOrder === sec.sortOrder);
+        if (newSec) {
+          for (const ex of exData) {
+            await db_training.createExercise({ ...ex, sectionId: newSec.id });
+            await db_training.upsertExerciseMaster(ex.name, sec.category, {
+              defaultSets: ex.sets,
+              defaultReps: ex.reps,
+              defaultLoad: ex.load,
+            });
+          }
+        }
+      }
+    }
+    return { success: true, id: newProgram?.id };
+  }),
+
+  update: protectedProcedure
+    .input(z.object({ id: z.number(), data: programInput }))
+    .mutation(async ({ input }) => {
+      const { sections: sectionData, ...programData } = input.data;
+      await db_training.updateProgram(input.id, programData);
+      const oldSections = await db_training.getSectionsByProgramId(input.id);
+      for (const sec of oldSections) {
+        await db_training.deleteExercisesBySectionId(sec.id);
+      }
+      await db_training.deleteSectionsByProgramId(input.id);
+      for (const sec of sectionData) {
+        const { exercises: exData, ...secData } = sec;
+        await db_training.createSection({ ...secData, programId: input.id });
+        const secs = await db_training.getSectionsByProgramId(input.id);
+        const newSec = secs.find(s => s.category === sec.category && s.sortOrder === sec.sortOrder);
+        if (newSec) {
+          for (const ex of exData) {
+            await db_training.createExercise({ ...ex, sectionId: newSec.id });
+            await db_training.upsertExerciseMaster(ex.name, sec.category);
+          }
+        }
+      }
+      return { success: true };
+    }),
+
+  delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    const oldSections = await db_training.getSectionsByProgramId(input.id);
+    for (const sec of oldSections) {
+      await db_training.deleteExercisesBySectionId(sec.id);
+    }
+    await db_training.deleteSectionsByProgramId(input.id);
+    await db_training.deleteProgram(input.id);
+    return { success: true };
+  }),
+
+  getForClone: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const program = await db_training.getProgramWithDetails(input.id);
+      if (!program) throw new Error("Program not found");
+      return program;
+    }),
+
+  listByAthlete: protectedProcedure
+    .input(z.object({ athleteId: z.number() }))
+    .query(({ input }) => db_training.getPrograms(input.athleteId)),
+
+  listByDate: protectedProcedure
+    .input(z.object({ date: z.string() }))
+    .query(({ input }) => db_training.getProgramsByDateWithDetails(input.date)),
+
+  parsePDF: protectedProcedure
+    .input(z.object({ fileBase64: z.string() }))
+    .mutation(async ({ input }) => {
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const programs = await parseProgramsFromPDF(buffer);
+      return { programs };
+    }),
+
+  parseExcel: protectedProcedure
+    .input(z.object({ fileBase64: z.string() }))
+    .mutation(async ({ input }) => {
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const programs = await parseProgramsFromExcel(buffer);
+      return { programs };
+    }),
+
+  bulkCreate: protectedProcedure
+    .input(z.array(programInput))
+    .mutation(async ({ input }) => {
+      const results: any[] = [];
+      for (const programData of input) {
+        const { sections: sectionData, ...pData } = programData;
+        const result = await db_training.createProgram(pData);
+        const programs = await db_training.getPrograms(pData.athleteId);
+        const newProgram = programs[0];
+        if (newProgram) {
+          for (const sec of sectionData) {
+            const { exercises: exData, ...secData } = sec;
+            await db_training.createSection({ ...secData, programId: newProgram.id });
+            const secs = await db_training.getSectionsByProgramId(newProgram.id);
+            const newSec = secs.find(
+              (s) => s.category === sec.category && s.sortOrder === sec.sortOrder
+            );
+            if (newSec) {
+              for (const ex of exData) {
+                await db_training.createExercise({ ...ex, sectionId: newSec.id });
+                await db_training.upsertExerciseMaster(ex.name, sec.category, {
+                  defaultSets: ex.sets,
+                  defaultReps: ex.reps,
+                  defaultLoad: ex.load,
+                });
+              }
+            }
+          }
+          results.push({ success: true, id: newProgram.id, athleteId: pData.athleteId });
+        }
+      }
+      return { results };
+    }),
+});
+
+const recordsRouter = router({
+  listByProgram: protectedProcedure
+    .input(z.object({ programId: z.number() }))
+    .query(({ input }) => db_training.getRecordsByProgram(input.programId)),
+
+  listByAthlete: protectedProcedure
+    .input(z.object({ athleteId: z.number() }))
+    .query(({ input }) => db_training.getRecordsByAthlete(input.athleteId)),
+
+  upsert: protectedProcedure.input(recordInput).mutation(async ({ input }) => {
+    await db_training.upsertRecord(input);
+    return { success: true };
+  }),
+
+  bulkSave: protectedProcedure
+    .input(z.array(recordInput))
+    .mutation(async ({ input }) => {
+      await db_training.bulkInsertRecords(input);
+      return { success: true };
+    }),
+
+  history: protectedProcedure
+    .input(z.object({ athleteId: z.number() }))
+    .query(({ input }) => db_training.getExerciseHistory(input.athleteId)),
+});
+
+const photosRouter = router({
+  listByProgram: protectedProcedure
+    .input(z.object({ programId: z.number() }))
+    .query(({ input }) => db_training.getPhotosByProgram(input.programId)),
+
+  upload: protectedProcedure
+    .input(
+      z.object({
+        programId: z.number(),
+        athleteId: z.number(),
+        date: z.string(),
+        fileBase64: z.string(),
+        mimeType: z.string().default("image/jpeg"),
+        fileName: z.string().default("photo.jpg"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { programId, athleteId, date, fileBase64, mimeType, fileName } = input;
+      const buffer = Buffer.from(fileBase64, "base64");
+      const key = `training-photos/${athleteId}/${date}-${Date.now()}-${fileName}`;
+      const { url } = await storagePut(key, buffer, mimeType);
+      await db_training.createPhoto({ programId, athleteId, date, fileUrl: url, fileKey: key, status: "pending" });
+      const allPhotos = await db_training.getPhotosByProgram(programId);
+      return { success: true, photoId: allPhotos[0]?.id, url };
+    }),
+
+  analyze: protectedProcedure
+    .input(
+      z.object({
+        photoId: z.number(),
+        programId: z.number(),
+        athleteId: z.number(),
+        date: z.string(),
+        imageUrl: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { photoId, programId, athleteId, date, imageUrl } = input;
+      await db_training.updatePhoto(photoId, { status: "processing" });
+
+      const programDetails = await db_training.getProgramWithDetails(programId);
+      const exerciseNames = programDetails?.sections
+        .flatMap(s => s.exercises.map(e => e.name))
+        .join(", ") || "";
+
+      const systemPrompt = `あなたはラグビーチームのトレーニング記録用紙を解析する専門のOCRアシスタントです。
+
+【用紙の構造】
+この用紙は「Strength Training Program」と書かれたA4サイズのトレーニングプログラム表です。
+各行に種目名・SET数・回数・負荷（印刷済み計画値）が記載されており、
+選手が実際にトレーニングを行った後、負荷欄 of 右隣の空白列または余白に
+手書きで「実際に使用した重量（実績値）」を書き込んでいます。
+
+【重要な読み取りルール】
+1. 印刷された値（計画値）と手書きの値（実績値）を必ず区別すること
+2. 手書きの実績値は通常、負荷欄の右隣の空白セルや余白に鉛筆・ボールペンで書かれている
+3. 実績値が「40」「52.5」のように数字のみの場合はkg単位の重量として扱う
+4. 「35 / 37.5 / 40」や「57.5/60」のようにスラッシュで区切られている場合は「セット1/セット2/セット3」の順の実績値
+   → setResultsに各セットの値を配列で格納すること（例: ["35", "37.5", "40"]）
+5. 実績値が書かれていない種目はsetResultsを空配列にする
+6. 種目名は印刷された文字から読み取る（手書きではない）
+7. SET数・回数は印刷値をそのまま使用する（手書き修正がある場合はそちらを優先）
+8. 同じ種目が複数行にまたがっている場合（例：ベンチプレスが3行）は、1つのexerciseNameにまとめてsetResultsに全セットの値を格納すること
+
+【セット別実績値の例】
+- ベンチプレス: 1行目「25kg計画→手書き25」、2行目「30kg計画→手書き30」、3行目「35/37.5kg計画→手書き35 / 37.5 / 40」
+  → exerciseName: "ベンチプレス", setResults: ["25", "30", "35", "37.5", "40"]
+- フロントSQ: 「40.0kg計画→手書き40」「52.5kg計画→手書き52.5」「55kg計画→手書き55」
+  → exerciseName: "フロントSQ", setResults: ["40", "52.5", "55"]
+
+【このプログラムの種目一覧（参考）】
+${exerciseNames}
+
+【出力形式】
+各種目について以下の情報を抽出してください：
+- exerciseName: 種目名（印刷文字から読み取る）
+- section: セクション名（Preparation/Core/Power/Lower Body/Upper Body/Specific）
+- plannedSets: 計画セット数の合計（印刷値の合計）
+- plannedReps: 計画回数（印刷値、複数行ある場合は最初の値）
+- plannedLoad: 計画負荷（印刷値、複数行ある場合は最初の値）
+- setResults: 手書きで記入されたセット別の実績重量の配列（例: ["35", "37.5", "40"]）。書かれていなければ空配列[]
+- notes: その行に書かれたその他のメモや注意事項
+
+読み取れない値はnullを使用してください。`;
+
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt } as Message,
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url" as const,
+                  image_url: { url: imageUrl, detail: "high" as const },
+                },
+                {
+                  type: "text" as const,
+                  text: "このトレーニング記録用紙から手書きの修正・記録を読み取ってください。",
+                },
+              ],
+            } as Message,
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "training_records",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  records: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        exerciseName: { type: "string", description: "種目名（印刷文字）" },
+                        section: { type: ["string", "null"], description: "Preparation/Core/Power/Lower Body/Upper Body/Specific" },
+                        plannedSets: { type: ["number", "null"], description: "計画セット数合計" },
+                        plannedReps: { type: ["string", "null"], description: "印刷された計画回数" },
+                        plannedLoad: { type: ["string", "null"], description: "印刷された計画負荷" },
+                        setResults: { type: "array", items: { type: "string" }, description: "セット別実績重量の配列。なければ空配列" },
+                        notes: { type: ["string", "null"], description: "その他のメモ" },
+                      },
+                      required: ["exerciseName", "section", "plannedSets", "plannedReps", "plannedLoad", "setResults", "notes"],
+                      additionalProperties: false,
+                    },
+                  },
+                  generalNotes: { type: ["string", "null"], description: "全体的なメモ" },
+                },
+                required: ["records", "generalNotes"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+
+        const rawContent = response.choices[0]?.message?.content;
+        const rawText = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent) || "{}";
+        const parsed = JSON.parse(rawText);
+
+        await db_training.updatePhoto(photoId, {
+          status: "done",
+          ocrRawResult: rawText,
+          ocrParsed: parsed,
+        });
+
+        if (programDetails && parsed.records) {
+          const allExercises = programDetails.sections.flatMap(s => s.exercises);
+          const recordsToInsert: Array<{
+            programId: number;
+            exerciseId: number;
+            athleteId: number;
+            date: string;
+            actualSets?: number;
+            actualReps?: string;
+            actualLoad?: string;
+            notes?: string;
+            source: "ocr";
+          }> = [];
+
+          for (const ocrRecord of parsed.records) {
+            const setResults: string[] = Array.isArray(ocrRecord.setResults) ? ocrRecord.setResults : [];
+            if (setResults.length === 0 && !ocrRecord.notes) continue;
+
+            const normalize = (s: string) => s.replace(/[\s　・・（）()]/g, "").toLowerCase();
+            const normOcr = normalize(ocrRecord.exerciseName);
+
+            const matchedExercises = allExercises.filter(e => {
+              const normEx = normalize(e.name);
+              return normEx === normOcr ||
+                normEx.includes(normOcr) ||
+                normOcr.includes(normEx) ||
+                (normOcr.length >= 4 && normEx.startsWith(normOcr.slice(0, 4)));
+            });
+
+            if (matchedExercises.length > 0) {
+              if (setResults.length > 0) {
+                setResults.forEach((load, idx) => {
+                  const matchedEx = matchedExercises[idx] || matchedExercises[matchedExercises.length - 1];
+                  recordsToInsert.push({
+                    programId,
+                    exerciseId: matchedEx.id,
+                    athleteId,
+                    date,
+                    actualSets: 1,
+                    actualReps: ocrRecord.plannedReps ?? undefined,
+                    actualLoad: load,
+                    notes: idx === 0 ? (ocrRecord.notes ?? undefined) : undefined,
+                    source: "ocr" as const,
+                  });
+                });
+              } else {
+                const matchedEx = matchedExercises[0];
+                recordsToInsert.push({
+                  programId,
+                  exerciseId: matchedEx.id,
+                  athleteId,
+                  date,
+                  actualSets: ocrRecord.plannedSets ?? undefined,
+                  actualReps: ocrRecord.plannedReps ?? undefined,
+                  actualLoad: undefined,
+                  notes: ocrRecord.notes ?? undefined,
+                  source: "ocr" as const,
+                });
+              }
+            }
+          }
+          if (recordsToInsert.length > 0) {
+            await db_training.bulkInsertRecords(recordsToInsert);
+          }
+        }
+
+        try {
+          const photo = await db_training.getPhotosByProgram(programId);
+          const target = photo.find(p => p.id === photoId);
+          if (target?.fileKey) {
+            await storageDelete(target.fileKey);
+            console.log(`[OCR] Deleted photo from S3: ${target.fileKey}`);
+          }
+        } catch (deleteErr) {
+          console.warn("[OCR] Failed to delete photo from S3:", deleteErr);
+        }
+
+        return { success: true, parsed };
+      } catch (err) {
+        await db_training.updatePhoto(photoId, { status: "error" });
+        throw err;
+      }
+    }),
+});
+
+const reportsRouter = router({
+  recentDates: protectedProcedure
+    .input(z.object({ limit: z.number().default(10) }))
+    .query(({ input }) => db_training.getRecentTrainingDates(input.limit)),
+
+  byDate: protectedProcedure
+    .input(z.object({ date: z.string() }))
+    .query(async ({ input }) => {
+      const rows = await db_training.getTrainingReportByDate(input.date);
+
+      const enriched = rows.map(row => {
+        const plannedLoadNum = parseFloat((row.plannedLoad ?? "").replace(/[^0-9.]/g, ""));
+        const actualLoadNum = parseFloat((row.actualLoad ?? "").replace(/[^0-9.]/g, ""));
+        const hasLoadChange =
+          row.actualLoad !== null &&
+          row.plannedLoad !== null &&
+          row.actualLoad !== "" &&
+          !isNaN(plannedLoadNum) &&
+          !isNaN(actualLoadNum) &&
+          Math.abs(actualLoadNum - plannedLoadNum) > 0.1;
+        const loadDiff =
+          hasLoadChange ? actualLoadNum - plannedLoadNum : null;
+        return {
+          ...row,
+          hasLoadChange,
+          loadDiff,
+          loadDiffPct:
+            hasLoadChange && plannedLoadNum > 0
+              ? Math.round((loadDiff! / plannedLoadNum) * 100)
+              : null,
+        };
+      });
+
+      const byAthlete: Record<number, {
+        athleteId: number;
+        athleteName: string;
+        athleteNumber: number | null;
+        sections: Record<string, typeof enriched>;
+        loadChangedCount: number;
+        totalExercises: number;
+      }> = {};
+
+      for (const row of enriched) {
+        if (!byAthlete[row.athleteId]) {
+          byAthlete[row.athleteId] = {
+            athleteId: row.athleteId,
+            athleteName: row.athleteName,
+            athleteNumber: row.athleteNumber,
+            sections: {},
+            loadChangedCount: 0,
+            totalExercises: 0,
+          };
+        }
+        const athlete = byAthlete[row.athleteId];
+        if (!athlete.sections[row.sectionCategory]) {
+          athlete.sections[row.sectionCategory] = [];
+        }
+        athlete.sections[row.sectionCategory].push(row);
+        athlete.totalExercises++;
+        if (row.hasLoadChange) athlete.loadChangedCount++;
+      }
+
+      return {
+        date: input.date,
+        athletes: Object.values(byAthlete),
+        totalRecords: rows.length,
+        totalLoadChanges: enriched.filter(r => r.hasLoadChange).length,
+      };
+    }),
+
+  dashboardStats: protectedProcedure.query(() => db_training.getDashboardStats()),
+});
+
+const exerciseMasterRouter = router({
+  list: protectedProcedure
+    .input(z.object({ category: z.string().optional() }))
+    .query(({ input }) => db_training.getExerciseMaster(input.category)),
+  grouped: protectedProcedure
+    .query(() => db_training.getAllExerciseMasterGrouped()),
+  create: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      category: z.string().min(1),
+      defaultSets: z.number().optional(),
+      defaultReps: z.string().optional(),
+      defaultLoad: z.string().optional(),
+      attention: z.string().optional(),
+    }))
+    .mutation(({ input }) => db_training.createExerciseMaster(input)),
+  update: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      name: z.string().min(1).optional(),
+      category: z.string().min(1).optional(),
+      defaultSets: z.number().optional(),
+      defaultReps: z.string().optional(),
+      defaultLoad: z.string().optional(),
+      attention: z.string().optional(),
+    }))
+    .mutation(({ input }) => {
+      const { id, ...data } = input;
+      return db_training.updateExerciseMaster(id, data);
+    }),
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input }) => db_training.deleteExerciseMaster(input.id)),
+
+  parseExcel: protectedProcedure
+    .input(z.object({ fileBase64: z.string() }))
+    .mutation(async ({ input }) => {
+      const XLSX = await import("xlsx");
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+
+      const CATEGORY_KEYWORDS: Record<string, string> = {
+        "Preparation": "Preparation",
+        "Core": "Core",
+        "Power": "Power",
+        "Lower Body": "Lower Body",
+        "Upper Body": "Upper Body",
+        "Specific": "Specific",
+      };
+
+      function normalizeName(name: string): string {
+        return name
+          .replace(/　/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function canonicalName(name: string): string {
+        return normalizeName(name).replace(/・/g, "");
+      }
+
+      const exerciseMap = new Map<string, { name: string; category: string; defaultSets?: number; defaultReps?: string; defaultLoad?: string }>();
+
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows: (string | number | null)[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as (string | number | null)[][];
+
+        let currentCategory: string | null = null;
+
+        for (const row of rows) {
+          const col0 = row[0] != null ? String(row[0]).trim() : "";
+
+          if (col0 && row[3] == null) {
+            for (const [kw, cat] of Object.entries(CATEGORY_KEYWORDS)) {
+              if (col0.includes(kw)) {
+                currentCategory = cat;
+                break;
+              }
+            }
+          }
+
+          if (currentCategory && col0 && row[3] != null) {
+            const sets = typeof row[3] === "number" ? Math.round(row[3]) : parseInt(String(row[3]));
+            if (!isNaN(sets) && sets > 0) {
+              const name = normalizeName(col0);
+              const canonical = canonicalName(name);
+              if (name !== "種目" && name !== "TOTAL" && !exerciseMap.has(canonical)) {
+                exerciseMap.set(canonical, {
+                  name,
+                  category: currentCategory,
+                  defaultSets: sets,
+                  defaultReps: row[4] != null ? String(row[4]).trim() : undefined,
+                  defaultLoad: row[5] != null ? String(row[5]).trim() : undefined,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      const parsed = Array.from(exerciseMap.values());
+      const existing = await db_training.getExerciseMaster();
+      const existingNames = new Set(existing.map((e: { name: string }) => canonicalName(e.name)));
+
+      const preview = parsed.map(item => ({
+        ...item,
+        isNew: !existingNames.has(canonicalName(item.name)),
+      }));
+
+      return { preview };
+    }),
+
+  bulkImport: protectedProcedure
+    .input(z.object({
+      items: z.array(z.object({
+        name: z.string(),
+        category: z.string(),
+        defaultSets: z.number().optional(),
+        defaultReps: z.string().optional(),
+        defaultLoad: z.string().optional(),
+      }))
+    }))
+    .mutation(({ input }) => db_training.bulkInsertExerciseMasterSkipExisting(input.items)),
+});
+
+const approvalRouter = router({
+  myStatus: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role === "admin") return { status: "approved" as const };
+    const approval = await db_training.getUserApprovalStatus(ctx.user.id);
+    if (!approval) {
+      await db_training.createPendingApproval(ctx.user.id);
+      await notifyOwner({
+        title: "新規ユーザーがログインしました",
+        content: `${ctx.user.name ?? ctx.user.email ?? "不明"}（${ctx.user.email ?? ""}）がアクセスを試みました。管理画面から承認してください。`,
+      });
+      return { status: "pending" as const };
+    }
+    return { status: approval.status };
+  }),
+
+  list: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    return db_training.listPendingApprovals();
+  }),
+
+  updateStatus: protectedProcedure
+    .input(z.object({
+      userId: z.number(),
+      status: z.enum(["approved", "rejected"]),
+      note: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      await db_training.updateApprovalStatus(input.userId, input.status, ctx.user.id, input.note);
+      return { success: true };
+    }),
+});
 
 export const appRouter = router({
   system: systemRouter,
@@ -425,6 +1147,13 @@ export const appRouter = router({
         return db.toggleExerciseSessionComplete(input.sessionId, input.isCompleted);
       }),
   }),
+  athletes: athletesRouter,
+  programs: programsRouter,
+  records: recordsRouter,
+  photos: photosRouter,
+  exerciseMaster: exerciseMasterRouter,
+  reports: reportsRouter,
+  approval: approvalRouter,
 });
 
 export type AppRouter = typeof appRouter;
