@@ -68,25 +68,6 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   
-  // Temporary unauthenticated debug endpoint to check DB configuration
-  app.get("/debug-db", (req, res) => {
-    res.json({
-      databaseUrl: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ":****@") : "not set",
-      nodeEnv: process.env.NODE_ENV,
-      basicAuthUser: process.env.BASIC_AUTH_USER ? "****" : "default"
-    });
-  });
-
-  // Temporary unauthenticated debug endpoint to check current athlete query results
-  app.get("/debug-athletes", async (req, res) => {
-    try {
-      const athletes = await db_training.getAthletes();
-      res.json({ athletes });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // Protect all static assets and APIs with Basic Auth
   app.use(basicAuth);
 
