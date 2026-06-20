@@ -14,22 +14,40 @@ async function main() {
 
   const oldConn = await mysql.createConnection({
     uri: oldUrlObj.toString(),
-    ssl: { rejectUnauthorized: true }
+    ssl: { rejectUnauthorized: true },
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
   });
   const newConn = await mysql.createConnection({
     uri: newUrlObj.toString(),
-    ssl: { rejectUnauthorized: true }
+    ssl: { rejectUnauthorized: true },
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
   });
 
   console.log("[Migration] Connected to both databases successfully.");
 
-  // 一時的に外部キー制約チェックを無効化して安全にバルクインサートする
+  console.log("[Migration] Fetching all data from old database...");
+  const [oldUsers] = await oldConn.query('SELECT * FROM users') as any[];
+  const [oldAthletes] = await oldConn.query('SELECT * FROM athletes') as any[];
+  const [oldPrograms] = await oldConn.query('SELECT * FROM programs') as any[];
+  const [oldSections] = await oldConn.query('SELECT * FROM sections') as any[];
+  const [oldExercises] = await oldConn.query('SELECT * FROM exercises') as any[];
+  const [oldRecords] = await oldConn.query('SELECT * FROM records') as any[];
+  const [oldPhotos] = await oldConn.query('SELECT * FROM photos') as any[];
+  const [oldExerciseMaster] = await oldConn.query('SELECT * FROM exercise_master') as any[];
+  const [oldApprovals] = await oldConn.query('SELECT * FROM user_approvals') as any[];
+
+  console.log("[Migration] Closing old database connection...");
+  await oldConn.end();
+
+  // 新DBでトランザクションを開始して処理を高速化・保護する
+  await newConn.query('START TRANSACTION');
   await newConn.query('SET FOREIGN_KEY_CHECKS = 0');
 
   try {
     // ---- 1. users ----
     console.log("[Migration] Migrating users...");
-    const [oldUsers] = await oldConn.query('SELECT * FROM users') as any[];
     const userMap = new Map<number, number>(); // oldId -> newId
 
     for (const ou of oldUsers) {
@@ -53,7 +71,6 @@ async function main() {
 
     // ---- 2. athletes -> players ----
     console.log("[Migration] Migrating athletes to players...");
-    const [oldAthletes] = await oldConn.query('SELECT * FROM athletes') as any[];
     const playerMap = new Map<number, number>(); // oldAthleteId -> newPlayerId
 
     for (const oa of oldAthletes) {
@@ -82,7 +99,6 @@ async function main() {
 
     // ---- 3. programs ----
     console.log("[Migration] Migrating programs...");
-    const [oldPrograms] = await oldConn.query('SELECT * FROM programs') as any[];
     const programMap = new Map<number, number>(); // oldProgramId -> newProgramId
 
     for (const op of oldPrograms) {
@@ -101,7 +117,6 @@ async function main() {
 
     // ---- 4. sections ----
     console.log("[Migration] Migrating sections...");
-    const [oldSections] = await oldConn.query('SELECT * FROM sections') as any[];
     const sectionMap = new Map<number, number>(); // oldSectionId -> newSectionId
 
     for (const os of oldSections) {
@@ -120,7 +135,6 @@ async function main() {
 
     // ---- 5. exercises -> training_exercises ----
     console.log("[Migration] Migrating exercises (plans)...");
-    const [oldExercises] = await oldConn.query('SELECT * FROM exercises') as any[];
     const exerciseMap = new Map<number, number>(); // oldExerciseId -> newExerciseId
 
     for (const oe of oldExercises) {
@@ -139,7 +153,6 @@ async function main() {
 
     // ---- 6. records ----
     console.log("[Migration] Migrating records (performance)...");
-    const [oldRecords] = await oldConn.query('SELECT * FROM records') as any[];
     let recordsMigrated = 0;
 
     for (const or of oldRecords) {
@@ -162,7 +175,6 @@ async function main() {
 
     // ---- 7. photos ----
     console.log("[Migration] Migrating photos (OCR)...");
-    const [oldPhotos] = await oldConn.query('SELECT * FROM photos') as any[];
     let photosMigrated = 0;
 
     for (const op of oldPhotos) {
@@ -186,7 +198,6 @@ async function main() {
 
     // ---- 8. exercise_master ----
     console.log("[Migration] Migrating exercise_master...");
-    const [oldExerciseMaster] = await oldConn.query('SELECT * FROM exercise_master') as any[];
     let masterMigrated = 0;
 
     for (const oem of oldExerciseMaster) {
@@ -205,7 +216,6 @@ async function main() {
 
     // ---- 9. user_approvals ----
     console.log("[Migration] Migrating user_approvals...");
-    const [oldApprovals] = await oldConn.query('SELECT * FROM user_approvals') as any[];
     let approvalsMigrated = 0;
 
     for (const oa of oldApprovals) {
@@ -233,10 +243,15 @@ async function main() {
     }
     console.log(`[Migration] User approvals migrated: ${approvalsMigrated} approvals.`);
 
+    await newConn.query('COMMIT');
+    console.log("[Migration] Transaction committed successfully.");
+  } catch (err) {
+    console.error("[Migration] Error occurred during migration. Rolling back transaction...");
+    await newConn.query('ROLLBACK');
+    throw err;
   } finally {
     // 外部キー制約チェックを元に戻す
     await newConn.query('SET FOREIGN_KEY_CHECKS = 1');
-    await oldConn.end();
     await newConn.end();
   }
 
