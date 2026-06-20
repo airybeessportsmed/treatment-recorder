@@ -39,7 +39,8 @@ import {
   ClipboardList, 
   Camera, 
   Database,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Sparkles
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -146,6 +147,61 @@ function DashboardLayoutContent({
   // Profile Edit State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
+
+  // Update State
+  interface UpdateItem {
+    id: string;
+    date: string;
+    version: string;
+    title: string;
+    details: string[];
+    isImportant?: boolean;
+  }
+
+  const [updates, setUpdates] = useState<UpdateItem[]>([]);
+  const [showBanner, setShowBanner] = useState(false);
+  const [latestUpdate, setLatestUpdate] = useState<UpdateItem | null>(null);
+  const [isUpdateHistoryOpen, setIsUpdateHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/updates.json")
+      .then(res => res.json())
+      .then((data: UpdateItem[]) => {
+        setUpdates(data);
+        if (data && data.length > 0) {
+          const readUpdateId = localStorage.getItem("read-update-id");
+          
+          // 3日以内の最近のアップデートがあればそれを表示、なければ最新1件
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const recentUpdates = data.filter(item => {
+            const updateDate = new Date(item.date);
+            updateDate.setHours(0, 0, 0, 0);
+            const diffTime = today.getTime() - updateDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= 3;
+          });
+          
+          const updatesToShow = recentUpdates.length > 0 ? recentUpdates : [data[0]];
+          const targetUpdate = updatesToShow[0];
+          
+          setLatestUpdate(targetUpdate);
+          
+          if (targetUpdate && readUpdateId !== targetUpdate.id) {
+            setShowBanner(true);
+          }
+        }
+      })
+      .catch(err => console.error("Failed to load updates:", err));
+  }, []);
+
+  const handleCloseBanner = () => {
+    if (latestUpdate) {
+      localStorage.setItem("read-update-id", latestUpdate.id);
+    }
+    setShowBanner(false);
+  };
 
   useEffect(() => {
     if (user?.name) {
@@ -359,6 +415,13 @@ function DashboardLayoutContent({
                   <span>プロフィール編集</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  onClick={() => setIsUpdateHistoryOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <Sparkles className="mr-2 h-4 w-4 text-muted-foreground animate-pulse" />
+                  <span>機能アップデート履歴</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
@@ -394,6 +457,41 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
+        
+        {/* 📢 共通機能アップデートバナー */}
+        {showBanner && latestUpdate && (
+          <div className="bg-primary/5 border-b border-primary/10 px-4 py-2 backdrop-blur-md sticky top-0 z-30 transition-all duration-300">
+            <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px]">
+                  ✨
+                </span>
+                <p className="text-xs font-medium text-foreground truncate">
+                  <span className="font-semibold text-primary mr-1">[アップデート]</span>
+                  {latestUpdate.title}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] px-2 text-primary hover:text-primary hover:bg-primary/10 rounded-full font-medium"
+                  onClick={() => setIsUpdateHistoryOpen(true)}
+                >
+                  詳細を見る
+                </Button>
+                <button
+                  onClick={handleCloseBanner}
+                  className="h-5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors focus:outline-none"
+                  aria-label="バナーを閉じる"
+                >
+                  <span className="text-xs">×</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
 
@@ -424,6 +522,49 @@ function DashboardLayoutContent({
               {updateProfileMutation.isPending ? "保存中..." : "変更を保存"}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 📢 機能アップデート履歴ダイアログ */}
+      <Dialog open={isUpdateHistoryOpen} onOpenChange={setIsUpdateHistoryOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col p-0 bg-background border rounded-3xl overflow-hidden shadow-2xl">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle className="text-lg font-bold flex gap-2 items-center">
+              <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+              機能アップデート履歴
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {updates.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">アップデート情報はありません</p>
+            ) : (
+              updates.map((item) => (
+                <div key={item.id} className="relative pl-6 pb-2 border-l border-muted last:border-0 last:pb-0">
+                  {/* Timeline bullet */}
+                  <div className="absolute -left-1.5 top-1 h-3 w-3 rounded-full border border-background bg-primary" />
+                  
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      {item.version}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {item.date}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                    {item.title}
+                  </h4>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {item.details.map((detail, dIdx) => (
+                      <li key={dIdx} className="text-xs text-muted-foreground leading-relaxed">
+                        {detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

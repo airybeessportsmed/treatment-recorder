@@ -1,0 +1,252 @@
+[
+  {
+    "id": "update-fc23d00",
+    "date": "2026-06-20",
+    "version": "commit-fc23d00",
+    "title": "Update migrate_training_data.ts",
+    "details": [
+      "Update migrate_training_data.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-2852b6f",
+    "date": "2026-06-20",
+    "version": "commit-2852b6f",
+    "title": "Update migrate_training_data.ts",
+    "details": [
+      "Update migrate_training_data.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-69971c3",
+    "date": "2026-06-20",
+    "version": "commit-69971c3",
+    "title": "Create migrate_training_data.ts",
+    "details": [
+      "Create migrate_training_data.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-1d1ded9",
+    "date": "2026-06-20",
+    "version": "commit-1d1ded9",
+    "title": "Update db.ts",
+    "details": [
+      "Update db.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-e23741e",
+    "date": "2026-06-20",
+    "version": "commit-e23741e",
+    "title": "Create db_training.ts",
+    "details": [
+      "Create db_training.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-744376f",
+    "date": "2026-06-20",
+    "version": "commit-744376f",
+    "title": "Create excelParser.ts",
+    "details": [
+      "Create excelParser.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-553f45d",
+    "date": "2026-06-20",
+    "version": "commit-553f45d",
+    "title": "Create pdfParser.ts",
+    "details": [
+      "Create pdfParser.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-9cce4d6",
+    "date": "2026-06-20",
+    "version": "commit-9cce4d6",
+    "title": "Update routers.ts",
+    "details": [
+      "Update routers.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-ac6cd81",
+    "date": "2026-06-20",
+    "version": "commit-ac6cd81",
+    "title": "Update anatomyData.ts",
+    "details": [
+      "Update anatomyData.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-a1f5a9b",
+    "date": "2026-06-20",
+    "version": "commit-a1f5a9b",
+    "title": "Update tsconfig.json",
+    "details": [
+      "Update tsconfig.json"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-3b5dc18",
+    "date": "2026-06-20",
+    "version": "commit-3b5dc18",
+    "title": "Update storage.ts",
+    "details": [
+      "Update storage.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-6803b26",
+    "date": "2026-06-20",
+    "version": "commit-6803b26",
+    "title": "Update schema.ts",
+    "details": [
+      "Update schema.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-2a8865a",
+    "date": "2026-06-20",
+    "version": "commit-2a8865a",
+    "title": "Create 0007_snapshot.json",
+    "details": [
+      "Create 0007_snapshot.json"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-2fac0e5",
+    "date": "2026-06-20",
+    "version": "commit-2fac0e5",
+    "title": "Create 0007_same_cerebro.sql",
+    "details": [
+      "Create 0007_same_cerebro.sql"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-a63eddf",
+    "date": "2026-06-20",
+    "version": "commit-a63eddf",
+    "title": "Update drizzle.config.ts",
+    "details": [
+      "Update drizzle.config.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-35a7167",
+    "date": "2026-06-20",
+    "version": "commit-35a7167",
+    "title": "Create UserApproval.tsx",
+    "details": [
+      "Create UserApproval.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-538147f",
+    "date": "2026-06-20",
+    "version": "commit-538147f",
+    "title": "Create Records.tsx",
+    "details": [
+      "Create Records.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-974bdb2",
+    "date": "2026-06-20",
+    "version": "commit-974bdb2",
+    "title": "Create Programs.tsx",
+    "details": [
+      "Create Programs.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-271ded8",
+    "date": "2026-06-20",
+    "version": "commit-271ded8",
+    "title": "Create ProgramPrint.tsx",
+    "details": [
+      "Create ProgramPrint.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-e438fd3",
+    "date": "2026-06-20",
+    "version": "commit-e438fd3",
+    "title": "Create ProgramImportConfirm.tsx",
+    "details": [
+      "Create ProgramImportConfirm.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-7e77531",
+    "date": "2026-06-20",
+    "version": "commit-7e77531",
+    "title": "Create ProgramImport.tsx",
+    "details": [
+      "Create ProgramImport.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-ac77d10",
+    "date": "2026-06-20",
+    "version": "commit-ac77d10",
+    "title": "Create ProgramEdit.tsx",
+    "details": [
+      "Create ProgramEdit.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-f42c261",
+    "date": "2026-06-20",
+    "version": "commit-f42c261",
+    "title": "Create ProgramDetail.tsx",
+    "details": [
+      "Create ProgramDetail.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-afd9c89",
+    "date": "2026-06-20",
+    "version": "commit-afd9c89",
+    "title": "Create ProgramCreate.tsx",
+    "details": [
+      "Create ProgramCreate.tsx"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-dff1ba1",
+    "date": "2026-06-20",
+    "version": "commit-dff1ba1",
+    "title": "Create PhotoOCR.tsx",
+    "details": [
+      "Create PhotoOCR.tsx"
+    ],
+    "isImportant": false
+  }
+]
