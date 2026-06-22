@@ -235,6 +235,12 @@ const programsRouter = router({
       const existingExerciseNames = details.sections
         .flatMap(sec => sec.exercises.map(ex => ex.name.trim().toLowerCase()));
 
+      // 既存プログラムのメニュー（種目）が0件の場合、無効なゴミデータとして自動的にクリーンアップ（削除）
+      if (existingExerciseNames.length === 0) {
+        await db_training.bulkDeletePrograms([existing.id]);
+        return { isDuplicate: false, duplicateType: "none" as const };
+      }
+
       const inputExerciseNames = input.exerciseNames.map(name => name.trim().toLowerCase());
 
       const existingSet = new Set(existingExerciseNames);

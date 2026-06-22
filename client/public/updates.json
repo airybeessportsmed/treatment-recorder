@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-a9c776f",
+    "date": "2026-06-22",
+    "version": "commit-a9c776f",
+    "title": "feat: プログラムインポート時の重複検知・上書き・スキップ機能の実装",
+    "details": [
+      "feat: プログラムインポート時の重複検知・上書き・スキップ機能の実装"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-351d79d",
     "date": "2026-06-22",
     "version": "commit-351d79d",
