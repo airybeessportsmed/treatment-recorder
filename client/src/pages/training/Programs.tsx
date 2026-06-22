@@ -32,7 +32,8 @@ import {
   Calendar as CalendarIcon,
   Camera,
   CheckCircle2,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -43,6 +44,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Programs() {
   const [, setLocation] = useLocation();
@@ -59,6 +72,26 @@ export default function Programs() {
   const { data: programs, isLoading } = trpc.programs.list.useQuery({
     athleteId: filterAthleteId !== "all" ? parseInt(filterAthleteId) : undefined,
   });
+
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const utils = trpc.useUtils();
+  const bulkDeleteMutation = trpc.programs.bulkDelete.useMutation({
+    onSuccess: () => {
+      toast.success("選択したプログラムを削除しました");
+      utils.programs.list.invalidate();
+      setSelectedIds([]);
+      setDeleteDialogOpen(false);
+    },
+    onError: (e) => {
+      toast.error("削除に失敗しました: " + e.message);
+    }
+  });
+
+  const handleDeleteSelected = () => {
+    bulkDeleteMutation.mutate({ ids: selectedIds });
+  };
 
   const filtered = programs?.filter(p => {
     const athlete = athletes?.find(a => a.id === p.athleteId);
@@ -77,6 +110,24 @@ export default function Programs() {
       (p.phase ?? "").includes(search)
     );
   }) ?? [];
+
+  // 全選択・個別選択の判定とハンドラ
+  const isAllSelected = filtered.length > 0 && filtered.every(p => selectedIds.includes(p.id));
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(filtered.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (id: number, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
 
   // 一括印刷実行
   const handleBatchPrint = () => {
@@ -165,19 +216,44 @@ export default function Programs() {
           </Button>
         </div>
       ) : (
-        <Card className="border shadow-sm overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow>
-                <TableHead className="w-[80px] text-center font-semibold">背番号</TableHead>
-                <TableHead className="w-[180px] font-semibold">選手</TableHead>
-                <TableHead className="w-[120px] font-semibold">日付</TableHead>
-                <TableHead className="w-[150px] font-semibold">期分け (フェーズ)</TableHead>
-                <TableHead className="w-[100px] text-center font-semibold">セット数</TableHead>
-                <TableHead className="w-[200px] font-semibold">実施ステータス (OCR/実績)</TableHead>
-                <TableHead className="text-right font-semibold">操作</TableHead>
-              </TableRow>
-            </TableHeader>
+        <>
+          {selectedIds.length > 0 && (
+            <div className="flex items-center justify-between p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-xl animate-in fade-in slide-in-from-top-1 duration-200">
+              <span className="text-sm font-semibold text-red-700">
+                {selectedIds.length}件 のプログラムを選択中
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="rounded-lg shadow-sm h-8"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                選択したプログラムを削除
+              </Button>
+            </div>
+          )}
+          <Card className="border shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow>
+                  <TableHead className="w-[50px] text-center">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                      aria-label="すべて選択"
+                    />
+                  </TableHead>
+                  <TableHead className="w-[80px] text-center font-semibold">背番号</TableHead>
+                  <TableHead className="w-[180px] font-semibold">選手</TableHead>
+                  <TableHead className="w-[120px] font-semibold">日付</TableHead>
+                  <TableHead className="w-[150px] font-semibold">期分け (フェーズ)</TableHead>
+                  <TableHead className="w-[100px] text-center font-semibold">セット数</TableHead>
+                  <TableHead className="w-[200px] font-semibold">実施ステータス (OCR/実績)</TableHead>
+                  <TableHead className="text-right font-semibold">操作</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {filtered.map(program => {
                 const athlete = athletes?.find(a => a.id === program.athleteId);
@@ -192,6 +268,13 @@ export default function Programs() {
                     className="cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => setLocation(`/training/programs/${program.id}`)}
                   >
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.includes(program.id)}
+                        onCheckedChange={(checked) => handleSelectRow(program.id, !!checked)}
+                        aria-label={`プログラム ${program.id} を選択`}
+                      />
+                    </TableCell>
                     <TableCell className="text-center font-bold text-slate-700">
                       #{athlete?.number ?? "?"}
                     </TableCell>
@@ -276,6 +359,7 @@ export default function Programs() {
             </TableBody>
           </Table>
         </Card>
+      </>
       )}
 
       {/* 一括印刷ダイアログ */}
@@ -306,6 +390,30 @@ export default function Programs() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-bold">プログラムの一括削除</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs leading-relaxed">
+              選択された {selectedIds.length}件 のプログラムを削除します。
+              この操作を行うと、プログラム内のセクション、種目計画、および紐づくすべての実施実績データ（OCR読み取り結果や手動記録）が完全に削除されます。
+              この操作は取り消せません。本当によろしいですか？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-500 text-white rounded-xl"
+              onClick={handleDeleteSelected}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending ? "削除中..." : "削除する"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

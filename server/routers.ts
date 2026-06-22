@@ -172,6 +172,13 @@ const programsRouter = router({
     return { success: true };
   }),
 
+  bulkDelete: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ input }) => {
+      await db_training.bulkDeletePrograms(input.ids);
+      return { success: true };
+    }),
+
   getForClone: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {

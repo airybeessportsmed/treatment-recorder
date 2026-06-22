@@ -158,6 +158,48 @@ export async function deleteProgram(id: number) {
   await db.delete(programs).where(eq(programs.id, id));
 }
 
+export async function bulkDeletePrograms(ids: number[]) {
+  const db = await getDb();
+  if (!db || ids.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    // 1. 各プログラムに関連する sections の ID を取得
+    const sectionsToDelete = await tx
+      .select({ id: sections.id })
+      .from(sections)
+      .where(inArray(sections.programId, ids));
+
+    const sectionIds = sectionsToDelete.map(s => s.id);
+
+    if (sectionIds.length > 0) {
+      // 2. exercises を削除
+      await tx
+        .delete(trainingExercises)
+        .where(inArray(trainingExercises.sectionId, sectionIds));
+
+      // 3. sections を削除
+      await tx
+        .delete(sections)
+        .where(inArray(sections.id, sectionIds));
+    }
+
+    // 4. 関連する records (実績記録) を削除
+    await tx
+      .delete(records)
+      .where(inArray(records.programId, ids));
+
+    // 5. 関連する photos (OCR画像レコード) を削除
+    await tx
+      .delete(photos)
+      .where(inArray(photos.programId, ids));
+
+    // 6. programs 自体を削除
+    await tx
+      .delete(programs)
+      .where(inArray(programs.id, ids));
+  });
+}
+
 // =====================
 // Sections
 // =====================

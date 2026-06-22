@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-3d2498a",
+    "date": "2026-06-22",
+    "version": "commit-3d2498a",
+    "title": "feat(training): refactor program list to table layout and add OCR/records status badges",
+    "details": [
+      "feat(training): refactor program list to table layout and add OCR/records status badges"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-9aed7a6",
     "date": "2026-06-22",
     "version": "commit-9aed7a6",
@@ -236,16 +246,6 @@
     "title": "Create excelParser.ts",
     "details": [
       "Create excelParser.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-553f45d",
-    "date": "2026-06-20",
-    "version": "commit-553f45d",
-    "title": "Create pdfParser.ts",
-    "details": [
-      "Create pdfParser.ts"
     ],
     "isImportant": false
   },
