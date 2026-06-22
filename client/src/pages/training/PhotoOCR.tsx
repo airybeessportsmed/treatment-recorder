@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,16 @@ export default function PhotoOCR() {
     { athleteId: selectedAthleteId ? parseInt(selectedAthleteId) : undefined },
     { enabled: !!selectedAthleteId }
   );
+
+  // 選択されたプログラムの日付を自動で実施日（デフォルト値）としてセットする
+  useEffect(() => {
+    if (programs && selectedProgramId) {
+      const selectedProg = programs.find(p => String(p.id) === selectedProgramId);
+      if (selectedProg && selectedProg.date) {
+        setDate(selectedProg.date);
+      }
+    }
+  }, [programs, selectedProgramId]);
 
   const uploadMutation = trpc.photos.upload.useMutation({
     onSuccess: (data) => {

@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-a540381",
+    "date": "2026-06-22",
+    "version": "commit-a540381",
+    "title": "fix: 種目（メニュー）が0件の既存重複プログラムを自動クリーンアップ（削除）する処理を追加",
+    "details": [
+      "fix: 種目（メニュー）が0件の既存重複プログラムを自動クリーンアップ（削除）する処理を追加"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-a9c776f",
     "date": "2026-06-22",
     "version": "commit-a9c776f",
