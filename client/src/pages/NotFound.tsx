@@ -2,13 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Home } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAppMode } from "../contexts/AppModeContext";
 
 export default function NotFound() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { appMode } = useAppMode();
 
   const handleGoHome = () => {
     setLocation("/");
   };
+
+  const scripts = typeof window !== "undefined"
+    ? Array.from(document.querySelectorAll("script")).map(s => s.src || s.id || "inline")
+    : [];
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -27,7 +33,7 @@ export default function NotFound() {
             Page Not Found
           </h2>
 
-          <p className="text-slate-600 mb-8 leading-relaxed">
+          <p className="text-slate-600 mb-6 leading-relaxed">
             Sorry, the page you are looking for doesn't exist.
             <br />
             It may have been moved or deleted.
@@ -35,7 +41,7 @@ export default function NotFound() {
 
           <div
             id="not-found-button-group"
-            className="flex flex-col sm:flex-row gap-3 justify-center"
+            className="flex flex-col sm:flex-row gap-3 justify-center mb-6"
           >
             <Button
               onClick={handleGoHome}
@@ -44,6 +50,19 @@ export default function NotFound() {
               <Home className="w-4 h-4 mr-2" />
               Go Home
             </Button>
+          </div>
+
+          <div className="p-4 bg-slate-100/80 rounded-xl text-left text-xs font-mono space-y-2 overflow-auto max-h-48 border border-slate-200">
+            <h3 className="font-bold text-slate-700 border-b pb-1 mb-1">🔍 Debug Info:</h3>
+            <div><strong>Href:</strong> {typeof window !== "undefined" ? window.location.href : "SSR"}</div>
+            <div><strong>Wouter Path:</strong> {location}</div>
+            <div><strong>AppMode:</strong> {appMode}</div>
+            <div><strong>Scripts:</strong></div>
+            <ul className="list-disc pl-4 space-y-1 text-[10px] text-slate-500 max-h-20 overflow-y-auto">
+              {scripts.map((src, i) => (
+                <li key={i} className="break-all">{src}</li>
+              ))}
+            </ul>
           </div>
         </CardContent>
       </Card>
