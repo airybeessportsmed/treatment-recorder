@@ -1,5 +1,125 @@
 [
   {
+    "id": "update-fcb4208",
+    "date": "2026-06-22",
+    "version": "commit-fcb4208",
+    "title": "debug: add temp /debug-git-hash and /debug-updates",
+    "details": [
+      "debug: add temp /debug-git-hash and /debug-updates"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-1a48250",
+    "date": "2026-06-20",
+    "version": "commit-1a48250",
+    "title": "clean: remove temporary debug endpoints",
+    "details": [
+      "clean: remove temporary debug endpoints"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-6048cd8",
+    "date": "2026-06-20",
+    "version": "commit-6048cd8",
+    "title": "Create list_new_db_athletes.ts",
+    "details": [
+      "Create list_new_db_athletes.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-14f268a",
+    "date": "2026-06-20",
+    "version": "commit-14f268a",
+    "title": "Create list_old_players.ts",
+    "details": [
+      "Create list_old_players.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-ed96862",
+    "date": "2026-06-20",
+    "version": "commit-ed96862",
+    "title": "Create merge_duplicate_players.ts",
+    "details": [
+      "Create merge_duplicate_players.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-f3f2711",
+    "date": "2026-06-20",
+    "version": "commit-f3f2711",
+    "title": "Create check_prod_api.ts",
+    "details": [
+      "Create check_prod_api.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-0599f64",
+    "date": "2026-06-20",
+    "version": "commit-0599f64",
+    "title": "Create check_data_for_60001.ts",
+    "details": [
+      "Create check_data_for_60001.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-74548d3",
+    "date": "2026-06-20",
+    "version": "commit-74548d3",
+    "title": "debug: import db_training in index.ts",
+    "details": [
+      "debug: import db_training in index.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-5a5672b",
+    "date": "2026-06-20",
+    "version": "commit-5a5672b",
+    "title": "debug: add temp /debug-athletes endpoint",
+    "details": [
+      "debug: add temp /debug-athletes endpoint"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-fc49ce7",
+    "date": "2026-06-20",
+    "version": "commit-fc49ce7",
+    "title": "debug: add temp /debug-db endpoint",
+    "details": [
+      "debug: add temp /debug-db endpoint"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-548bdae",
+    "date": "2026-06-20",
+    "version": "commit-548bdae",
+    "title": "Create list_players.ts",
+    "details": [
+      "Create list_players.ts"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-19c5185",
+    "date": "2026-06-20",
+    "version": "commit-19c5185",
+    "title": "fix: 過去の日本語アップデート履歴を自動生成スクリプトにマージ統合",
+    "details": [
+      "fix: 過去の日本語アップデート履歴を自動生成スクリプトにマージ統合"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-52a7035",
     "date": "2026-06-20",
     "version": "commit-52a7035",
@@ -126,126 +246,6 @@
     "title": "Update schema.ts",
     "details": [
       "Update schema.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-2a8865a",
-    "date": "2026-06-20",
-    "version": "commit-2a8865a",
-    "title": "Create 0007_snapshot.json",
-    "details": [
-      "Create 0007_snapshot.json"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-2fac0e5",
-    "date": "2026-06-20",
-    "version": "commit-2fac0e5",
-    "title": "Create 0007_same_cerebro.sql",
-    "details": [
-      "Create 0007_same_cerebro.sql"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-a63eddf",
-    "date": "2026-06-20",
-    "version": "commit-a63eddf",
-    "title": "Update drizzle.config.ts",
-    "details": [
-      "Update drizzle.config.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-35a7167",
-    "date": "2026-06-20",
-    "version": "commit-35a7167",
-    "title": "Create UserApproval.tsx",
-    "details": [
-      "Create UserApproval.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-538147f",
-    "date": "2026-06-20",
-    "version": "commit-538147f",
-    "title": "Create Records.tsx",
-    "details": [
-      "Create Records.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-974bdb2",
-    "date": "2026-06-20",
-    "version": "commit-974bdb2",
-    "title": "Create Programs.tsx",
-    "details": [
-      "Create Programs.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-271ded8",
-    "date": "2026-06-20",
-    "version": "commit-271ded8",
-    "title": "Create ProgramPrint.tsx",
-    "details": [
-      "Create ProgramPrint.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-e438fd3",
-    "date": "2026-06-20",
-    "version": "commit-e438fd3",
-    "title": "Create ProgramImportConfirm.tsx",
-    "details": [
-      "Create ProgramImportConfirm.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-7e77531",
-    "date": "2026-06-20",
-    "version": "commit-7e77531",
-    "title": "Create ProgramImport.tsx",
-    "details": [
-      "Create ProgramImport.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-ac77d10",
-    "date": "2026-06-20",
-    "version": "commit-ac77d10",
-    "title": "Create ProgramEdit.tsx",
-    "details": [
-      "Create ProgramEdit.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-f42c261",
-    "date": "2026-06-20",
-    "version": "commit-f42c261",
-    "title": "Create ProgramDetail.tsx",
-    "details": [
-      "Create ProgramDetail.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-afd9c89",
-    "date": "2026-06-20",
-    "version": "commit-afd9c89",
-    "title": "Create ProgramCreate.tsx",
-    "details": [
-      "Create ProgramCreate.tsx"
     ],
     "isImportant": false
   },
