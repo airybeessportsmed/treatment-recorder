@@ -58,9 +58,9 @@ export default function ProgramDetail() {
       toast.success("プログラムを削除しました");
       const athleteId = program?.athleteId;
       if (athleteId) {
-        setLocation(`/athletes/${athleteId}`);
+        setLocation(`/training/athletes/${athleteId}`);
       } else {
-        setLocation("/programs");
+        setLocation("/training/programs");
       }
     },
     onError: () => toast.error("削除に失敗しました"),
@@ -147,8 +147,8 @@ export default function ProgramDetail() {
             size="icon"
             onClick={() =>
               program.athleteId
-                ? setLocation(`/athletes/${program.athleteId}`)
-                : setLocation("/programs")
+                ? setLocation(`/training/athletes/${program.athleteId}`)
+                : setLocation("/training/programs")
             }
           >
             <ArrowLeft className="h-4 w-4" />
@@ -160,7 +160,7 @@ export default function ProgramDetail() {
             variant="outline"
             size="sm"
             onClick={() =>
-              setLocation(`/ocr?programId=${programId}&athleteId=${program.athleteId}`)
+              setLocation(`/training/ocr?programId=${programId}&athleteId=${program.athleteId}`)
             }
           >
             <Camera className="h-4 w-4 mr-1" /> OCR
@@ -171,7 +171,7 @@ export default function ProgramDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLocation(`/programs/create?cloneFrom=${programId}&athleteId=${program.athleteId}`)}
+            onClick={() => setLocation(`/training/programs/create?cloneFrom=${programId}&athleteId=${program.athleteId}`)}
             title="このプログラムを複製して新規作成"
           >
             <Copy className="h-4 w-4 mr-1" /> 複製
@@ -179,7 +179,7 @@ export default function ProgramDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLocation(`/programs/${programId}/edit`)}
+            onClick={() => setLocation(`/training/programs/${programId}/edit`)}
           >
             <Pencil className="h-4 w-4 mr-1" /> 編集
           </Button>

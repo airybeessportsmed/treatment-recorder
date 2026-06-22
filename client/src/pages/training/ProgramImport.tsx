@@ -115,7 +115,7 @@ export default function ProgramImport() {
       JSON.stringify(parsedPrograms)
     );
     setPreviewDialogOpen(false);
-    setLocation("/programs/import/confirm");
+    setLocation("/training/programs/import/confirm");
   };
 
   return (

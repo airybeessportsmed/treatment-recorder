@@ -74,10 +74,10 @@ export default function Programs() {
           <Button variant="outline" size="sm" onClick={() => setBatchPrintOpen(true)}>
             <Printer className="h-4 w-4 mr-1" /> 一括印刷
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setLocation("/programs/import")}>
+          <Button variant="outline" size="sm" onClick={() => setLocation("/training/programs/import")}>
             <Upload className="h-4 w-4 mr-1" /> PDFから読み込み
           </Button>
-          <Button onClick={() => setLocation("/programs/new")} size="sm">
+          <Button onClick={() => setLocation("/training/programs/create")} size="sm">
             <Plus className="h-4 w-4 mr-1" /> 新規作成
           </Button>
         </div>
@@ -141,7 +141,7 @@ export default function Programs() {
         <div className="text-center py-12 text-muted-foreground">
           <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p>プログラムがありません</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => setLocation("/programs/new")}>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => setLocation("/training/programs/create")}>
             最初のプログラムを作成する
           </Button>
         </div>
@@ -153,7 +153,7 @@ export default function Programs() {
               <Card
                 key={program.id}
                 className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setLocation(`/programs/${program.id}`)}
+                onClick={() => setLocation(`/training/programs/${program.id}`)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">

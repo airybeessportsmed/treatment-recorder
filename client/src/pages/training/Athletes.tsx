@@ -138,7 +138,7 @@ export default function Athletes() {
             <Card
               key={athlete.id}
               className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setLocation(`/athletes/${athlete.id}`)}
+              onClick={() => setLocation(`/training/athletes/${athlete.id}`)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">

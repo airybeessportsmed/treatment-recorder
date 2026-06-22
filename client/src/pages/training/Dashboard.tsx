@@ -261,28 +261,28 @@ export default function Dashboard() {
       label: "選手を管理する",
       description: "選手の登録・編集・詳細確認",
       icon: Users,
-      path: "/athletes",
+      path: "/training/athletes",
       color: "bg-blue-600",
     },
     {
       label: "プログラムを作成する",
       description: "新しいトレーニングプログラムを作成",
       icon: ClipboardList,
-      path: "/programs/new",
+      path: "/training/programs/create",
       color: "bg-green-600",
     },
     {
       label: "記録・履歴を確認する",
       description: "種目別の重量・回数の推移を確認",
       icon: BarChart2,
-      path: "/records",
+      path: "/training/records",
       color: "bg-purple-600",
     },
     {
       label: "写真からOCR読み取り",
       description: "手書き修正した記録用紙を撮影して自動入力",
       icon: Camera,
-      path: "/ocr",
+      path: "/training/ocr",
       color: "bg-orange-600",
     },
   ];
@@ -366,7 +366,7 @@ export default function Dashboard() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => setLocation("/ocr")}
+                onClick={() => setLocation("/training/ocr")}
               >
                 <Camera className="h-4 w-4 mr-1" /> OCRで記録を取り込む
               </Button>
@@ -478,7 +478,7 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">最近のプログラム</h2>
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/programs")}>
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/training/programs")}>
               すべて表示 <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -489,7 +489,7 @@ export default function Dashboard() {
                 <Card
                   key={program.id}
                   className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => setLocation(`/programs/${program.id}`)}
+                  onClick={() => setLocation(`/training/programs/${program.id}`)}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between">

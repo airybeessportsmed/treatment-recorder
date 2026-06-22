@@ -205,9 +205,9 @@ export default function ProgramCreate() {
       utils.programs.list.invalidate();
       toast.success("プログラムを作成しました");
       if (data?.id) {
-        setLocation(`/programs/${data.id}`);
+        setLocation(`/training/programs/${data.id}`);
       } else {
-        setLocation("/programs");
+        setLocation("/training/programs");
       }
     },
     onError: () => toast.error("作成に失敗しました"),
@@ -273,7 +273,7 @@ export default function ProgramCreate() {
             if (step === "form" && !cloneFromId) {
               setStep("pick");
             } else {
-              setLocation("/programs");
+              setLocation("/training/programs");
             }
           }}
         >

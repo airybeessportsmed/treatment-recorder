@@ -18,7 +18,7 @@ export default function ProgramEdit() {
       utils.programs.get.invalidate({ id: programId });
       utils.programs.list.invalidate();
       toast.success("プログラムを更新しました");
-      setLocation(`/programs/${programId}`);
+      setLocation(`/training/programs/${programId}`);
     },
     onError: () => toast.error("更新に失敗しました"),
   });
@@ -89,7 +89,7 @@ export default function ProgramEdit() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setLocation(`/programs/${programId}`)}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation(`/training/programs/${programId}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-bold">プログラム編集</h1>

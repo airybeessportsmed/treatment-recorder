@@ -1,5 +1,35 @@
 [
   {
+    "id": "update-f8fcce7",
+    "date": "2026-06-22",
+    "version": "commit-f8fcce7",
+    "title": "Update updates.json",
+    "details": [
+      "Update updates.json"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-bca7fb4",
+    "date": "2026-06-22",
+    "version": "commit-bca7fb4",
+    "title": "debug: add info to NotFound page",
+    "details": [
+      "debug: add info to NotFound page"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-3aa6a92",
+    "date": "2026-06-22",
+    "version": "commit-3aa6a92",
+    "title": "debug: temp bypass basic auth",
+    "details": [
+      "debug: temp bypass basic auth"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-fcb4208",
     "date": "2026-06-22",
     "version": "commit-fcb4208",
@@ -216,36 +246,6 @@
     "title": "Update anatomyData.ts",
     "details": [
       "Update anatomyData.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-a1f5a9b",
-    "date": "2026-06-20",
-    "version": "commit-a1f5a9b",
-    "title": "Update tsconfig.json",
-    "details": [
-      "Update tsconfig.json"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-3b5dc18",
-    "date": "2026-06-20",
-    "version": "commit-3b5dc18",
-    "title": "Update storage.ts",
-    "details": [
-      "Update storage.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-6803b26",
-    "date": "2026-06-20",
-    "version": "commit-6803b26",
-    "title": "Update schema.ts",
-    "details": [
-      "Update schema.ts"
     ],
     "isImportant": false
   },

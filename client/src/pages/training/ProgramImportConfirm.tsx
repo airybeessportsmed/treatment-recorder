@@ -111,7 +111,7 @@ export default function ProgramImportConfirm() {
     onSuccess: (data) => {
       setIsCreating(false);
       toast.success(`${data.results.length}件のプログラムを作成しました`);
-      setLocation("/programs");
+      setLocation("/training/programs");
     },
     onError: (e) => {
       setIsCreating(false);
@@ -154,7 +154,7 @@ export default function ProgramImportConfirm() {
         }
       } catch (e) {
         toast.error("セッションデータが無効です");
-        setLocation("/programs/import");
+        setLocation("/training/programs/import");
       }
     }
   }, []);
@@ -214,7 +214,7 @@ export default function ProgramImportConfirm() {
           <p className="text-muted-foreground mb-4">
             Excelから読み込んだプログラムデータがセッションに保存されていません
           </p>
-          <Button onClick={() => setLocation("/programs/import")}>
+          <Button onClick={() => setLocation("/training/programs/import")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             インポートに戻る
           </Button>
@@ -334,7 +334,7 @@ export default function ProgramImportConfirm() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLocation("/programs/import")}
+          onClick={() => setLocation("/training/programs/import")}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -527,7 +527,7 @@ export default function ProgramImportConfirm() {
       <div className="mt-8 flex justify-end gap-4">
         <Button
           variant="outline"
-          onClick={() => setLocation("/programs/import")}
+          onClick={() => setLocation("/training/programs/import")}
         >
           キャンセル
         </Button>

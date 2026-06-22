@@ -20,7 +20,7 @@ export default function AthleteDetail() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/athletes")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/training/athletes")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-bold">選手詳細</h1>
@@ -58,7 +58,7 @@ export default function AthleteDetail() {
           </h2>
           <Button
             size="sm"
-            onClick={() => setLocation(`/programs/new?athleteId=${athleteId}`)}
+            onClick={() => setLocation(`/training/programs/create?athleteId=${athleteId}`)}
           >
             <Plus className="h-4 w-4 mr-1" /> 新規作成
           </Button>
@@ -75,7 +75,7 @@ export default function AthleteDetail() {
               <Card
                 key={program.id}
                 className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setLocation(`/programs/${program.id}`)}
+                onClick={() => setLocation(`/training/programs/${program.id}`)}
               >
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
@@ -110,7 +110,7 @@ export default function AthleteDetail() {
       <Button
         variant="outline"
         className="w-full"
-        onClick={() => setLocation(`/records?athleteId=${athleteId}`)}
+        onClick={() => setLocation(`/training/records?athleteId=${athleteId}`)}
       >
         <BarChart2 className="h-4 w-4 mr-2" />
         記録・推移グラフを見る
