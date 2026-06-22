@@ -63,10 +63,52 @@ export async function deleteAthlete(id: number) {
 export async function getPrograms(athleteId?: number) {
   const db = await getDb();
   if (!db) return [];
+  
+  let programList;
   if (athleteId) {
-    return db.select().from(programs).where(eq(programs.athleteId, athleteId)).orderBy(desc(programs.date));
+    programList = await db.select().from(programs).where(eq(programs.athleteId, athleteId)).orderBy(desc(programs.date));
+  } else {
+    programList = await db.select().from(programs).orderBy(desc(programs.date));
   }
-  return db.select().from(programs).orderBy(desc(programs.date));
+
+  if (programList.length === 0) return [];
+
+  // 各プログラムに紐づくレコードの集計を取得
+  const recordsSummary = await db
+    .select({
+      programId: records.programId,
+      totalCount: sql<number>`count(${records.id})`,
+      ocrCount: sql<number>`sum(case when ${records.source} = 'ocr' then 1 else 0 end)`,
+      manualCount: sql<number>`sum(case when ${records.source} = 'manual' then 1 else 0 end)`,
+    })
+    .from(records)
+    .groupBy(records.programId);
+
+  // マップ化してマージしやすくする
+  const summaryMap = new Map<number, typeof recordsSummary[0]>();
+  for (const s of recordsSummary) {
+    summaryMap.set(s.programId, s);
+  }
+
+  return programList.map(p => {
+    const summary = summaryMap.get(p.id);
+    const totalCount = summary ? Number(summary.totalCount) : 0;
+    const ocrCount = summary ? Number(summary.ocrCount) : 0;
+    const manualCount = summary ? Number(summary.manualCount) : 0;
+    
+    let status: "ocr" | "manual" | "pending" = "pending";
+    if (totalCount > 0) {
+      status = ocrCount > 0 ? "ocr" : "manual";
+    }
+
+    return {
+      ...p,
+      recordCount: totalCount,
+      ocrCount: ocrCount,
+      manualCount: manualCount,
+      status
+    };
+  });
 }
 
 export async function getProgramById(id: number) {

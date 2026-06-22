@@ -22,8 +22,27 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Search, ClipboardList, ArrowRight, Printer, Upload, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Plus,
+  Search,
+  ClipboardList,
+  ArrowRight,
+  Printer,
+  Upload,
+  Calendar as CalendarIcon,
+  Camera,
+  CheckCircle2,
+  Clock
+} from "lucide-react";
 import { useLocation } from "wouter";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function Programs() {
   const [, setLocation] = useLocation();
@@ -146,51 +165,117 @@ export default function Programs() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map(program => {
-            const athlete = athletes?.find(a => a.id === program.athleteId);
-            return (
-              <Card
-                key={program.id}
-                className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setLocation(`/training/programs/${program.id}`)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                        {athlete?.number ?? "?"}
-                      </div>
+        <Card className="border shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead className="w-[80px] text-center font-semibold">背番号</TableHead>
+                <TableHead className="w-[180px] font-semibold">選手</TableHead>
+                <TableHead className="w-[120px] font-semibold">日付</TableHead>
+                <TableHead className="w-[150px] font-semibold">期分け (フェーズ)</TableHead>
+                <TableHead className="w-[100px] text-center font-semibold">セット数</TableHead>
+                <TableHead className="w-[200px] font-semibold">実施ステータス (OCR/実績)</TableHead>
+                <TableHead className="text-right font-semibold">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(program => {
+                const athlete = athletes?.find(a => a.id === program.athleteId);
+                
+                // 集計値を取得（サーバー側で追加したプロパティ）
+                const recordCount = (program as any).recordCount ?? 0;
+                const status = (program as any).status ?? "pending";
+                
+                return (
+                  <TableRow
+                    key={program.id}
+                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => setLocation(`/training/programs/${program.id}`)}
+                  >
+                    <TableCell className="text-center font-bold text-slate-700">
+                      #{athlete?.number ?? "?"}
+                    </TableCell>
+                    <TableCell>
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold">{athlete?.name ?? "不明"}</p>
-                          {program.periodCategory && (
-                            <Badge variant="secondary" className="text-xs">{program.periodCategory}</Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <p className="text-sm text-muted-foreground">{program.date}</p>
-                          {program.phase && (
-                            <span className="text-xs text-muted-foreground">· {program.phase}</span>
-                          )}
-                        </div>
-                        {program.goal && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{program.goal}</p>
+                        <p className="font-semibold text-sm">{athlete?.name ?? "不明"}</p>
+                        {athlete?.position && (
+                          <p className="text-[10px] text-muted-foreground uppercase">{athlete.position}</p>
                         )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {program.totalSets && (
-                        <span className="text-sm font-medium text-muted-foreground">{program.totalSets} sets</span>
+                    </TableCell>
+                    <TableCell className="text-sm font-mono text-slate-600">{program.date}</TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        {program.periodCategory ? (
+                          <Badge variant="secondary" className="text-[10px] px-2 py-0">
+                            {program.periodCategory}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                        {program.phase && (
+                          <p className="text-[10px] text-muted-foreground pl-0.5">{program.phase}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-sm">
+                      {program.totalSets ? `${program.totalSets} sets` : "-"}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {status === "ocr" ? (
+                        <Badge className="bg-sky-500 hover:bg-sky-600 text-white border-0 flex items-center gap-1.5 w-fit font-medium text-[11px] py-0.5 px-2.5 shadow-sm">
+                          <Camera className="h-3.5 w-3.5 shrink-0" />
+                          OCR解析済 ({recordCount}件)
+                        </Badge>
+                      ) : status === "manual" ? (
+                        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 flex items-center gap-1.5 w-fit font-medium text-[11px] py-0.5 px-2.5 shadow-sm">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                          手動記録済 ({recordCount}件)
+                        </Badge>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-muted-foreground bg-slate-50 border-slate-200 flex items-center gap-1.5 w-fit font-normal text-[11px] py-0.5 px-2.5">
+                            <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            計画のみ
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[10px] text-primary hover:text-primary-hover hover:bg-primary/5 px-2 font-medium"
+                            onClick={() => setLocation(`/training/ocr?programId=${program.id}&athleteId=${program.athleteId}`)}
+                          >
+                            <Upload className="h-3 w-3 mr-1" />
+                            OCR取り込み
+                          </Button>
+                        </div>
                       )}
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs px-3"
+                          onClick={() => setLocation(`/training/programs/${program.id}`)}
+                        >
+                          詳細
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
+                          onClick={() => setLocation(`/training/programs/${program.id}/edit`)}
+                        >
+                          編集
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {/* 一括印刷ダイアログ */}

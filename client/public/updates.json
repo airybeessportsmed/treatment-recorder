@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-9aed7a6",
+    "date": "2026-06-22",
+    "version": "commit-9aed7a6",
+    "title": "fix(training): fix residual /ocr navigation path in ProgramDetail",
+    "details": [
+      "fix(training): fix residual /ocr navigation path in ProgramDetail"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-6c434b0",
     "date": "2026-06-22",
     "version": "commit-6c434b0",
@@ -236,16 +246,6 @@
     "title": "Create pdfParser.ts",
     "details": [
       "Create pdfParser.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-9cce4d6",
-    "date": "2026-06-20",
-    "version": "commit-9cce4d6",
-    "title": "Update routers.ts",
-    "details": [
-      "Update routers.ts"
     ],
     "isImportant": false
   },
