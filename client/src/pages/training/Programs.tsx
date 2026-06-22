@@ -33,7 +33,10 @@ import {
   Camera,
   CheckCircle2,
   Clock,
-  Trash2
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -93,13 +96,23 @@ export default function Programs() {
     bulkDeleteMutation.mutate({ ids: selectedIds });
   };
 
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortField, setSortField] = useState<"athlete" | "date" | "status" | null>("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   const filtered = programs?.filter(p => {
     const athlete = athletes?.find(a => a.id === p.athleteId);
+    const status = (p as any).status ?? "pending";
 
     // 日付での絞り込み
     if (filterDate) {
       const formattedFilterDate = format(filterDate, "yyyy-MM-dd");
       if (p.date !== formattedFilterDate) return false;
+    }
+
+    // ステータスでの絞り込み
+    if (filterStatus !== "all") {
+      if (status !== filterStatus) return false;
     }
 
     return (
@@ -111,11 +124,48 @@ export default function Programs() {
     );
   }) ?? [];
 
+  // ソートロジック
+  const sortedAndFiltered = [...filtered].sort((a, b) => {
+    if (!sortField) return 0;
+
+    let valA: any = "";
+    let valB: any = "";
+
+    if (sortField === "date") {
+      valA = a.date;
+      valB = b.date;
+    } else if (sortField === "athlete") {
+      const athleteA = athletes?.find(x => x.id === a.athleteId);
+      const athleteB = athletes?.find(x => x.id === b.athleteId);
+      valA = athleteA ? `${String(athleteA.number).padStart(3, '0')}_${athleteA.name}` : "";
+      valB = athleteB ? `${String(athleteB.number).padStart(3, '0')}_${athleteB.name}` : "";
+    } else if (sortField === "status") {
+      const statusA = (a as any).status ?? "pending";
+      const statusB = (b as any).status ?? "pending";
+      const order: Record<string, number> = { pending: 1, ocr: 2, manual: 3 };
+      valA = order[statusA] ?? 0;
+      valB = order[statusB] ?? 0;
+    }
+
+    if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+    if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (field: "athlete" | "date" | "status") => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
   // 全選択・個別選択の判定とハンドラ
-  const isAllSelected = filtered.length > 0 && filtered.every(p => selectedIds.includes(p.id));
+  const isAllSelected = sortedAndFiltered.length > 0 && sortedAndFiltered.every(p => selectedIds.includes(p.id));
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(filtered.map(p => p.id));
+      setSelectedIds(sortedAndFiltered.map(p => p.id));
     } else {
       setSelectedIds([]);
     }
@@ -189,6 +239,17 @@ export default function Programs() {
               クリア
             </Button>
           )}
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="ステータス絞り込み" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全ステータス</SelectItem>
+              <SelectItem value="pending">計画のみ</SelectItem>
+              <SelectItem value="ocr">OCR解析済</SelectItem>
+              <SelectItem value="manual">手動記録済</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filterAthleteId} onValueChange={setFilterAthleteId}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="選手を絞り込み" />
@@ -246,16 +307,52 @@ export default function Programs() {
                     />
                   </TableHead>
                   <TableHead className="w-[80px] text-center font-semibold">背番号</TableHead>
-                  <TableHead className="w-[180px] font-semibold">選手</TableHead>
-                  <TableHead className="w-[120px] font-semibold">日付</TableHead>
+                  <TableHead
+                    className="w-[180px] font-semibold cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                    onClick={() => handleSort("athlete")}
+                  >
+                    <div className="flex items-center gap-1">
+                      選手
+                      {sortField === "athlete" ? (
+                        sortDirection === "asc" ? <ArrowUp className="h-3.5 w-3.5 text-primary shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 text-primary shrink-0" />
+                      ) : (
+                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="w-[120px] font-semibold cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                    onClick={() => handleSort("date")}
+                  >
+                    <div className="flex items-center gap-1">
+                      日付
+                      {sortField === "date" ? (
+                        sortDirection === "asc" ? <ArrowUp className="h-3.5 w-3.5 text-primary shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 text-primary shrink-0" />
+                      ) : (
+                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[150px] font-semibold">期分け (フェーズ)</TableHead>
                   <TableHead className="w-[100px] text-center font-semibold">セット数</TableHead>
-                  <TableHead className="w-[200px] font-semibold">実施ステータス (OCR/実績)</TableHead>
+                  <TableHead
+                    className="w-[200px] font-semibold cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center gap-1">
+                      実施ステータス (OCR/実績)
+                      {sortField === "status" ? (
+                        sortDirection === "asc" ? <ArrowUp className="h-3.5 w-3.5 text-primary shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 text-primary shrink-0" />
+                      ) : (
+                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right font-semibold">操作</TableHead>
                 </TableRow>
               </TableHeader>
             <TableBody>
-              {filtered.map(program => {
+              {sortedAndFiltered.map(program => {
                 const athlete = athletes?.find(a => a.id === program.athleteId);
                 
                 // 集計値を取得（サーバー側で追加したプロパティ）

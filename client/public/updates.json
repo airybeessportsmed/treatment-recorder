@@ -1,5 +1,25 @@
 [
   {
+    "id": "update-540d56b",
+    "date": "2026-06-22",
+    "version": "commit-540d56b",
+    "title": "fix: Render本番環境でのポートの不一致による503エラーを回避",
+    "details": [
+      "fix: Render本番環境でのポートの不一致による503エラーを回避"
+    ],
+    "isImportant": false
+  },
+  {
+    "id": "update-39b4506",
+    "date": "2026-06-22",
+    "version": "commit-39b4506",
+    "title": "fix: Wouterルートの評価順序を修正しインポート画面の遷移バグを解消",
+    "details": [
+      "fix: Wouterルートの評価順序を修正しインポート画面の遷移バグを解消"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-1f7e088",
     "date": "2026-06-22",
     "version": "commit-1f7e088",
@@ -226,26 +246,6 @@
     "title": "Create migrate_training_data.ts",
     "details": [
       "Create migrate_training_data.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-1d1ded9",
-    "date": "2026-06-20",
-    "version": "commit-1d1ded9",
-    "title": "Update db.ts",
-    "details": [
-      "Update db.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-e23741e",
-    "date": "2026-06-20",
-    "version": "commit-e23741e",
-    "title": "Create db_training.ts",
-    "details": [
-      "Create db_training.ts"
     ],
     "isImportant": false
   },
