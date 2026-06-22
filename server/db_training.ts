@@ -30,6 +30,20 @@ export async function getAthletes() {
   return db.select().from(players).where(eq(players.isActive, 1)).orderBy(asc(players.number));
 }
 
+export async function getAthleteByNumber(number: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(players).where(and(eq(players.number, number), eq(players.isActive, 1))).limit(1);
+  return result[0] || null;
+}
+
+export async function getAthleteByName(name: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(players).where(and(eq(players.name, name), eq(players.isActive, 1))).limit(1);
+  return result[0] || null;
+}
+
 export async function getAthleteById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

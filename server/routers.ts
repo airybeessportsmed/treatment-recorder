@@ -214,12 +214,38 @@ const programsRouter = router({
 
   checkDuplicate: protectedProcedure
     .input(z.object({
-      athleteId: z.number(),
+      athleteId: z.number().optional(),
+      athleteNumber: z.number().optional(),
+      athleteName: z.string(),
       date: z.string(),
       exerciseNames: z.array(z.string()),
     }))
     .query(async ({ input }) => {
-      const existingPrograms = await db_training.getProgramsByAthleteAndDate(input.athleteId, input.date);
+      let athlete;
+
+      // 0. IDが指定されていれば、IDから直接選手を取得
+      if (input.athleteId) {
+        athlete = await db_training.getAthleteById(input.athleteId);
+      }
+
+      // 1. まず背番号から選手を取得
+      if (!athlete && input.athleteNumber) {
+        athlete = await db_training.getAthleteByNumber(input.athleteNumber);
+      }
+
+      // 2. 背番号でヒットしない、または背番号がない場合は名前で検索（スペースなどを排除して正規化比較）
+      if (!athlete) {
+        const allAthletes = await db_training.getAthletes();
+        const normalize = (s: string) => s.replace(/[\s　・]/g, "").toLowerCase();
+        athlete = allAthletes.find(a => normalize(a.name) === normalize(input.athleteName));
+      }
+
+      // 選手が見つからなければ重複判定は行えない
+      if (!athlete) {
+        return { isDuplicate: false, duplicateType: "none" as const };
+      }
+
+      const existingPrograms = await db_training.getProgramsByAthleteAndDate(athlete.id, input.date);
       if (existingPrograms.length === 0) {
         return { isDuplicate: false, duplicateType: "none" as const };
       }
@@ -248,7 +274,7 @@ const programsRouter = router({
 
       const isExactMatch = 
         existingSet.size === inputSet.size && 
-        [...existingSet].every(name => inputSet.has(name));
+        Array.from(existingSet).every(name => inputSet.has(name));
 
       return {
         isDuplicate: true,

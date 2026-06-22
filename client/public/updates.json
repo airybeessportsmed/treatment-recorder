@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-87eea95",
+    "date": "2026-06-22",
+    "version": "commit-87eea95",
+    "title": "feat: OCR記録読み取り画面（PhotoOCR）の実施日の初期値をプログラム日付と同じになるよう設定",
+    "details": [
+      "feat: OCR記録読み取り画面（PhotoOCR）の実施日の初期値をプログラム日付と同じになるよう設定"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-a540381",
     "date": "2026-06-22",
     "version": "commit-a540381",

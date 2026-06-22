@@ -97,7 +97,7 @@ export default function ProgramImportConfirm() {
   // 重複チェック状態と、アクション選択状態 (i -> action)
   const [duplicateStates, setDuplicateStates] = useState<Record<number, {
     isDuplicate: boolean;
-    duplicateType?: "exact" | "partial";
+    duplicateType?: "exact" | "partial" | "none";
     existingProgramId?: number;
     existingProgramName?: string;
   }>>({});
@@ -179,7 +179,7 @@ export default function ProgramImportConfirm() {
 
       for (let i = 0; i < parsedPrograms.length; i++) {
         const prog = parsedPrograms[i];
-        if (!prog.selectedAthleteId || !prog.date) {
+        if (!prog.date) {
           continue;
         }
 
@@ -188,6 +188,8 @@ export default function ProgramImportConfirm() {
         try {
           const res = await utils.client.programs.checkDuplicate.query({
             athleteId: prog.selectedAthleteId,
+            athleteNumber: prog.athleteNumber,
+            athleteName: prog.athleteName,
             date: prog.date,
             exerciseNames,
           });
