@@ -155,7 +155,8 @@ async function startServer() {
   }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  // Render.comなどのクラウド環境（PORTが明示されている場合）は、ポート自動回避をせず指定ポートで直接Listenします（ポートの不一致による503を回避するため）
+  const port = process.env.PORT ? preferredPort : await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
