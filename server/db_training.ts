@@ -224,6 +224,89 @@ export async function bulkDeletePrograms(ids: number[]) {
   });
 }
 
+export async function getDuplicateProgramGroups() {
+  const db = await getDb();
+  if (!db) return [];
+
+  // 1. 重複している (athleteId, date) の組み合わせを取得
+  const duplicates = await db
+    .select({
+      athleteId: programs.athleteId,
+      date: programs.date,
+      count: sql<number>`count(*)`,
+    })
+    .from(programs)
+    .groupBy(programs.athleteId, programs.date)
+    .having(sql`count(*) > 1`);
+
+  if (duplicates.length === 0) return [];
+
+  const results: any[] = [];
+
+  for (const dup of duplicates) {
+    if (!dup.athleteId || !dup.date) continue;
+
+    // 選手情報を取得
+    const athlete = await db
+      .select()
+      .from(players)
+      .where(eq(players.id, dup.athleteId))
+      .limit(1);
+
+    if (!athlete[0]) continue;
+
+    // この選手と日付に紐づくプログラム一覧を取得
+    const programList = await db
+      .select()
+      .from(programs)
+      .where(and(eq(programs.athleteId, dup.athleteId), eq(programs.date, dup.date)))
+      .orderBy(asc(programs.createdAt));
+
+    const enrichedPrograms: any[] = [];
+
+    for (const prog of programList) {
+      // プログラムの詳細（セクションや種目計画）を取得
+      const details = await getProgramWithDetails(prog.id);
+      if (!details) continue;
+
+      // 種目名のリストを抽出
+      const exerciseNames = details.sections
+        .flatMap(sec => sec.exercises.map(ex => ex.name));
+
+      // 紐づく実績（records）の数を集計
+      const recordList = await db
+        .select()
+        .from(records)
+        .where(eq(records.programId, prog.id));
+
+      const ocrCount = recordList.filter(r => r.source === "ocr").length;
+      const manualCount = recordList.filter(r => r.source === "manual").length;
+
+      enrichedPrograms.push({
+        id: prog.id,
+        phase: prog.phase,
+        periodCategory: prog.periodCategory,
+        createdAt: prog.createdAt,
+        exercises: exerciseNames,
+        recordCount: recordList.length,
+        ocrCount,
+        manualCount,
+      });
+    }
+
+    results.push({
+      athleteId: dup.athleteId,
+      athleteName: athlete[0].name,
+      athleteNumber: athlete[0].number,
+      date: dup.date,
+      programs: enrichedPrograms,
+    });
+  }
+
+  return results;
+}
+
+
 // =====================
 // Sections
 // =====================

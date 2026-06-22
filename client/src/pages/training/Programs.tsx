@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -75,11 +76,23 @@ export default function Programs() {
   const { data: programs, isLoading } = trpc.programs.list.useQuery({
     athleteId: filterAthleteId !== "all" ? parseInt(filterAthleteId) : undefined,
   });
+  const { data: duplicates } = trpc.programs.getDuplicates.useQuery();
+  const [cleanupOpen, setCleanupOpen] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const utils = trpc.useUtils();
+  const cleanupMutation = trpc.programs.bulkDelete.useMutation({
+    onSuccess: () => {
+      toast.success("重複するプログラムを削除しました");
+      utils.programs.list.invalidate();
+      utils.programs.getDuplicates.invalidate();
+    },
+    onError: (e) => {
+      toast.error("削除に失敗しました: " + e.message);
+    }
+  });
   const bulkDeleteMutation = trpc.programs.bulkDelete.useMutation({
     onSuccess: () => {
       toast.success("選択したプログラムを削除しました");
@@ -202,6 +215,23 @@ export default function Programs() {
           </Button>
         </div>
       </div>
+
+      {/* 重複整理バナー */}
+      {duplicates && duplicates.length > 0 && (
+        <div className="flex items-center justify-between p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl animate-in fade-in slide-in-from-top-1 duration-200">
+          <span className="text-sm font-semibold text-amber-800">
+            ⚠️ 重複して登録されているプログラムグループが {duplicates.length} 件あります。
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-lg shadow-sm h-8 border-amber-500/30 text-amber-800 hover:bg-amber-500/10 font-bold bg-white"
+            onClick={() => setCleanupOpen(true)}
+          >
+            重複を整理する
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
@@ -511,6 +541,120 @@ export default function Programs() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 重複整理ダイアログ */}
+      <Dialog open={cleanupOpen} onOpenChange={setCleanupOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-6 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              重複プログラムの整理・クリーンアップ
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              同じ選手・日付で複数登録されているプログラムです。中身を確認し、不要な方を削除して整理してください。
+              （実績データが登録されているプログラムを残すことをお勧めします）
+            </p>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 my-4 pr-3 overflow-y-auto">
+            <div className="space-y-6">
+              {duplicates && duplicates.length > 0 ? (
+                duplicates.map((group, groupIdx) => (
+                  <div key={groupIdx} className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm">#{group.athleteNumber} {group.athleteName}</span>
+                        <span className="text-xs text-slate-500 font-mono">実施日: {group.date}</span>
+                      </div>
+                      <Badge variant="outline" className="bg-amber-100/50 text-amber-800 border-amber-200 text-[10px]">
+                        重複プログラム: {group.programs.length}件
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {group.programs.map((prog) => {
+                        const hasRecords = prog.recordCount > 0;
+                        return (
+                          <div key={prog.id} className={`bg-white border rounded-xl p-3 flex flex-col justify-between shadow-sm relative ${
+                            hasRecords ? "border-emerald-500/50 ring-1 ring-emerald-500/20" : "border-slate-200"
+                          }`}>
+                            {hasRecords && (
+                              <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white hover:bg-emerald-600 text-[9px] px-1.5 py-0">
+                                実績あり推奨
+                              </Badge>
+                            )}
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="text-xs font-bold text-slate-700">
+                                    {prog.phase || "プログラム計画"}
+                                    {prog.periodCategory && ` (${prog.periodCategory})`}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    作成日: {format(new Date(prog.createdAt), "yyyy/MM/dd HH:mm")}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="border-t pt-2 mt-1">
+                                <p className="text-[10px] font-bold text-slate-500">種目構成 ({prog.exercises.length}種目):</p>
+                                <div className="text-[10px] text-slate-600 max-h-24 overflow-y-auto mt-1 list-disc pl-3">
+                                  {prog.exercises.length > 0 ? (
+                                    prog.exercises.map((name, i) => <div key={i}>• {name}</div>)
+                                  ) : (
+                                    <span className="text-muted-foreground italic">種目なし</span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="border-t pt-2 mt-1 flex gap-2">
+                                <div className="text-[10px] text-slate-600">
+                                  実績数: <span className="font-bold">{prog.recordCount}件</span>
+                                  {prog.recordCount > 0 && (
+                                    <span className="text-muted-foreground">
+                                      {" "}(OCR: {prog.ocrCount} / 手動: {prog.manualCount})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 pt-2 border-t flex justify-end">
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-8 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white"
+                                onClick={() => {
+                                  if (confirm("この重複プログラムを完全に削除します。よろしいですか？\n(実績データや画像等も一緒に削除されます)")) {
+                                    cleanupMutation.mutate({ ids: [prog.id] });
+                                  }
+                                }}
+                                disabled={cleanupMutation.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                削除する
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  重複プログラムはありません。綺麗に整理されました！
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="border-t pt-4">
+            <Button variant="outline" onClick={() => setCleanupOpen(false)} className="rounded-xl">
+              閉じる
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

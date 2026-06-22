@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-4a7a751",
+    "date": "2026-06-22",
+    "version": "commit-4a7a751",
+    "title": "feat: インポート時の選手未マッチング状態でも背番号と名前をキーに重複チェックを実行できるように修正",
+    "details": [
+      "feat: インポート時の選手未マッチング状態でも背番号と名前をキーに重複チェックを実行できるように修正"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-87eea95",
     "date": "2026-06-22",
     "version": "commit-87eea95",

@@ -108,6 +108,10 @@ const programsRouter = router({
     .input(z.object({ athleteId: z.number().optional() }))
     .query(({ input }) => db_training.getPrograms(input.athleteId)),
 
+  getDuplicates: protectedProcedure.query(() =>
+    db_training.getDuplicateProgramGroups()
+  ),
+
   get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) =>
     db_training.getProgramWithDetails(input.id)
   ),
