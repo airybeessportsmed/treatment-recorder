@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-1f7e088",
+    "date": "2026-06-22",
+    "version": "commit-1f7e088",
+    "title": "feat(training): add bulk program selection and deletion feature",
+    "details": [
+      "feat(training): add bulk program selection and deletion feature"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-3d2498a",
     "date": "2026-06-22",
     "version": "commit-3d2498a",
@@ -236,16 +246,6 @@
     "title": "Create db_training.ts",
     "details": [
       "Create db_training.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-744376f",
-    "date": "2026-06-20",
-    "version": "commit-744376f",
-    "title": "Create excelParser.ts",
-    "details": [
-      "Create excelParser.ts"
     ],
     "isImportant": false
   },

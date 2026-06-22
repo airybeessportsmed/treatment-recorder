@@ -60,11 +60,11 @@ function Router() {
           <Route path={"/training/athletes/:id"} component={AthleteDetail} />
           <Route path={"/training/programs"} component={Programs} />
           <Route path={"/training/programs/create"} component={ProgramCreate} />
+          <Route path={"/training/programs/import"} component={ProgramImport} />
+          <Route path={"/training/programs/import/confirm"} component={ProgramImportConfirm} />
           <Route path={"/training/programs/:id"} component={ProgramDetail} />
           <Route path={"/training/programs/:id/edit"} component={ProgramEdit} />
           <Route path={"/training/programs/:id/print"} component={ProgramPrint} />
-          <Route path={"/training/programs/import"} component={ProgramImport} />
-          <Route path={"/training/programs/import/confirm"} component={ProgramImportConfirm} />
           <Route path={"/training/records"} component={TrainingRecords} />
           <Route path={"/training/ocr"} component={PhotoOCR} />
           <Route path={"/training/exercise-master"} component={ExerciseMaster} />
