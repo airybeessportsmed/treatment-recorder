@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, like, sql, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, or, like, sql, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   players,
@@ -241,46 +241,112 @@ export async function getDuplicateProgramGroups() {
 
   if (duplicates.length === 0) return [];
 
+  // 2. 該当する選手情報と日付リストから、関係データを一括取得
+  const athleteIds = Array.from(new Set(duplicates.map(d => d.athleteId).filter((id): id is number => id !== null)));
+  if (athleteIds.length === 0) return [];
+
+  const athleteList = await db
+    .select()
+    .from(players)
+    .where(and(inArray(players.id, athleteIds), eq(players.isActive, 1)));
+  const athleteMap = new Map(athleteList.map(a => [a.id, a]));
+
+  // 重複キーの OR 条件を構築
+  const orConditions = duplicates
+    .filter(d => d.athleteId !== null && d.date !== null)
+    .map(d => and(eq(programs.athleteId, d.athleteId!), eq(programs.date, d.date!)));
+
+  if (orConditions.length === 0) return [];
+
+  const programList = await db
+    .select()
+    .from(programs)
+    .where(orConditions.length === 1 ? orConditions[0] : or(...orConditions))
+    .orderBy(asc(programs.createdAt));
+
+  if (programList.length === 0) return [];
+  const programIds = programList.map(p => p.id);
+
+  // sections を一括取得
+  const sectionList = await db
+    .select()
+    .from(sections)
+    .where(inArray(sections.programId, programIds))
+    .orderBy(asc(sections.sortOrder));
+
+  const sectionIds = sectionList.map(s => Number(s.id));
+
+  // trainingExercises を一括取得
+  const exerciseList = sectionIds.length > 0
+    ? await db
+        .select()
+        .from(trainingExercises)
+        .where(inArray(trainingExercises.sectionId, sectionIds))
+        .orderBy(asc(trainingExercises.sortOrder))
+    : [];
+
+  // records を一括取得
+  const recordList = await db
+    .select()
+    .from(records)
+    .where(inArray(records.programId, programIds));
+
+  // --- メモリ上でのマッピングと構造化 ---
+
+  // sections を programId ごとにグループ化
+  const sectionsByProgram = new Map<number, typeof sectionList>();
+  for (const sec of sectionList) {
+    if (!sectionsByProgram.has(sec.programId)) {
+      sectionsByProgram.set(sec.programId, []);
+    }
+    sectionsByProgram.get(sec.programId)!.push(sec);
+  }
+
+  // exercises を sectionId ごとにグループ化
+  const exercisesBySection = new Map<number, typeof exerciseList>();
+  for (const ex of exerciseList) {
+    const secId = Number(ex.sectionId);
+    if (!exercisesBySection.has(secId)) {
+      exercisesBySection.set(secId, []);
+    }
+    exercisesBySection.get(secId)!.push(ex);
+  }
+
+  // records を programId ごとにグループ化
+  const recordsByProgram = new Map<number, typeof recordList>();
+  for (const rec of recordList) {
+    if (!recordsByProgram.has(rec.programId)) {
+      recordsByProgram.set(rec.programId, []);
+    }
+    recordsByProgram.get(rec.programId)!.push(rec);
+  }
+
   const results: any[] = [];
 
   for (const dup of duplicates) {
-    if (!dup.athleteId || !dup.date) continue;
+    if (dup.athleteId === null || !dup.date) continue;
+    const athlete = athleteMap.get(dup.athleteId);
+    if (!athlete) continue;
 
-    // 選手情報を取得
-    const athlete = await db
-      .select()
-      .from(players)
-      .where(eq(players.id, dup.athleteId))
-      .limit(1);
-
-    if (!athlete[0]) continue;
-
-    // この選手と日付に紐づくプログラム一覧を取得
-    const programList = await db
-      .select()
-      .from(programs)
-      .where(and(eq(programs.athleteId, dup.athleteId), eq(programs.date, dup.date)))
-      .orderBy(asc(programs.createdAt));
-
+    // このグループに属するプログラム
+    const groupPrograms = programList.filter(p => p.athleteId === dup.athleteId && p.date === dup.date);
     const enrichedPrograms: any[] = [];
 
-    for (const prog of programList) {
-      // プログラムの詳細（セクションや種目計画）を取得
-      const details = await getProgramWithDetails(prog.id);
-      if (!details) continue;
+    for (const prog of groupPrograms) {
+      // 種目名を抽出
+      const progSections = sectionsByProgram.get(prog.id) ?? [];
+      const exerciseNames: string[] = [];
+      for (const sec of progSections) {
+        const secExercises = exercisesBySection.get(Number(sec.id)) ?? [];
+        for (const ex of secExercises) {
+          exerciseNames.push(ex.name);
+        }
+      }
 
-      // 種目名のリストを抽出
-      const exerciseNames = details.sections
-        .flatMap(sec => sec.exercises.map(ex => ex.name));
-
-      // 紐づく実績（records）の数を集計
-      const recordList = await db
-        .select()
-        .from(records)
-        .where(eq(records.programId, prog.id));
-
-      const ocrCount = recordList.filter(r => r.source === "ocr").length;
-      const manualCount = recordList.filter(r => r.source === "manual").length;
+      // 実績集計
+      const progRecords = recordsByProgram.get(prog.id) ?? [];
+      const ocrCount = progRecords.filter(r => r.source === "ocr").length;
+      const manualCount = progRecords.filter(r => r.source === "manual").length;
 
       enrichedPrograms.push({
         id: prog.id,
@@ -288,7 +354,7 @@ export async function getDuplicateProgramGroups() {
         periodCategory: prog.periodCategory,
         createdAt: prog.createdAt,
         exercises: exerciseNames,
-        recordCount: recordList.length,
+        recordCount: progRecords.length,
         ocrCount,
         manualCount,
       });
@@ -296,8 +362,8 @@ export async function getDuplicateProgramGroups() {
 
     results.push({
       athleteId: dup.athleteId,
-      athleteName: athlete[0].name,
-      athleteNumber: athlete[0].number,
+      athleteName: athlete.name,
+      athleteNumber: athlete.number,
       date: dup.date,
       programs: enrichedPrograms,
     });

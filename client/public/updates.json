@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-6ad41e9",
+    "date": "2026-06-22",
+    "version": "commit-6ad41e9",
+    "title": "feat: 既存プログラムの重複を検知・整理（一括削除）できる機能（案A）を実装",
+    "details": [
+      "feat: 既存プログラムの重複を検知・整理（一括削除）できる機能（案A）を実装"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-4a7a751",
     "date": "2026-06-22",
     "version": "commit-4a7a751",
@@ -286,16 +296,6 @@
     "title": "Update migrate_training_data.ts",
     "details": [
       "Update migrate_training_data.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-69971c3",
-    "date": "2026-06-20",
-    "version": "commit-69971c3",
-    "title": "Create migrate_training_data.ts",
-    "details": [
-      "Create migrate_training_data.ts"
     ],
     "isImportant": false
   },
