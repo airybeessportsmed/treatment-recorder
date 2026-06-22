@@ -67,6 +67,33 @@ function basicAuth(req: express.Request, res: express.Response, next: express.Ne
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // Temporary unauthenticated debug routes to check deployment status
+  app.get("/debug-git-hash", (req, res) => {
+    try {
+      const { execSync } = require("child_process");
+      const hash = execSync("git rev-parse HEAD").toString().trim();
+      res.json({ commitHash: hash, renderCommit: process.env.RENDER_GIT_COMMIT });
+    } catch (e: any) {
+      res.json({ error: e.message, renderCommit: process.env.RENDER_GIT_COMMIT });
+    }
+  });
+
+  app.get("/debug-updates", (req, res) => {
+    try {
+      const fs = require("fs");
+      const path = require("path");
+      const updatesPath = path.resolve(import.meta.dirname, "../../client/public/updates.json");
+      if (fs.existsSync(updatesPath)) {
+        const content = fs.readFileSync(updatesPath, "utf-8");
+        res.json(JSON.parse(content).slice(0, 3));
+      } else {
+        res.status(404).json({ error: "updates.json not found" });
+      }
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
   
   // Protect all static assets and APIs with Basic Auth
   app.use(basicAuth);
