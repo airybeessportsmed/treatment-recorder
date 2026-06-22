@@ -267,7 +267,7 @@ export default function ProgramDetail() {
                   className="h-auto p-0 text-sm"
                   onClick={() =>
                     setLocation(
-                      `/ocr?programId=${programId}&athleteId=${program.athleteId}`
+                      `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
                     )
                   }
                 >

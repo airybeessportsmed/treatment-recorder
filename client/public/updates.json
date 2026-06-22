@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-6c434b0",
+    "date": "2026-06-22",
+    "version": "commit-6c434b0",
+    "title": "fix(training): fix 404 navigation errors by prefixing Wouter paths and restore basic auth",
+    "details": [
+      "fix(training): fix 404 navigation errors by prefixing Wouter paths and restore basic auth"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-f8fcce7",
     "date": "2026-06-22",
     "version": "commit-f8fcce7",
@@ -236,16 +246,6 @@
     "title": "Update routers.ts",
     "details": [
       "Update routers.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-ac6cd81",
-    "date": "2026-06-20",
-    "version": "commit-ac6cd81",
-    "title": "Update anatomyData.ts",
-    "details": [
-      "Update anatomyData.ts"
     ],
     "isImportant": false
   },
