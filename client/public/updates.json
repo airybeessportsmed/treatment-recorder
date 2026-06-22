@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-351d79d",
+    "date": "2026-06-22",
+    "version": "commit-351d79d",
+    "title": "feat: プログラム一覧に日付・名前・ステータスでのソートおよびステータスフィルターを追加",
+    "details": [
+      "feat: プログラム一覧に日付・名前・ステータスでのソートおよびステータスフィルターを追加"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-540d56b",
     "date": "2026-06-22",
     "version": "commit-540d56b",

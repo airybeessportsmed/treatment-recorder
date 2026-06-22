@@ -94,6 +94,15 @@ export default function ProgramImportConfirm() {
   const [editingExercise, setEditingExercise] = useState<EditingExercise | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
+  // 重複チェック状態と、アクション選択状態 (i -> action)
+  const [duplicateStates, setDuplicateStates] = useState<Record<number, {
+    isDuplicate: boolean;
+    duplicateType?: "exact" | "partial";
+    existingProgramId?: number;
+    existingProgramName?: string;
+  }>>({});
+  const [importActions, setImportActions] = useState<Record<number, "create" | "overwrite" | "skip">>({});
+
   // 新規選手クイック作成用および自動マッチング用の状態
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateName, setQuickCreateName] = useState("");
@@ -158,6 +167,66 @@ export default function ProgramImportConfirm() {
       }
     }
   }, []);
+
+  // 割り当て選手や日付が変わったときに重複チェックを実行する
+  useEffect(() => {
+    let active = true;
+    const checkAll = async () => {
+      if (!athletes || parsedPrograms.length === 0) return;
+
+      const newDuplicateStates: typeof duplicateStates = {};
+      const newImportActions = { ...importActions };
+
+      for (let i = 0; i < parsedPrograms.length; i++) {
+        const prog = parsedPrograms[i];
+        if (!prog.selectedAthleteId || !prog.date) {
+          continue;
+        }
+
+        const exerciseNames = prog.sections.flatMap(sec => sec.exercises.map(ex => ex.name));
+
+        try {
+          const res = await utils.client.programs.checkDuplicate.query({
+            athleteId: prog.selectedAthleteId,
+            date: prog.date,
+            exerciseNames,
+          });
+
+          if (res.isDuplicate) {
+            newDuplicateStates[i] = {
+              isDuplicate: true,
+              duplicateType: res.duplicateType,
+              existingProgramId: res.existingProgramId,
+              existingProgramName: res.existingProgramName,
+            };
+
+            if (!importActions[i]) {
+              // 完全一致ならデフォルト「スキップ」、部分一致なら「上書き」
+              newImportActions[i] = res.duplicateType === "exact" ? "skip" : "overwrite";
+            }
+          } else {
+            newDuplicateStates[i] = { isDuplicate: false };
+            if (!importActions[i]) {
+              newImportActions[i] = "create";
+            }
+          }
+        } catch (e) {
+          console.error("Duplicate check failed for index", i, e);
+        }
+      }
+
+      if (active) {
+        setDuplicateStates(newDuplicateStates);
+        setImportActions(newImportActions);
+      }
+    };
+
+    checkAll();
+
+    return () => {
+      active = false;
+    };
+  }, [parsedPrograms, athletes, utils]);
 
   // 選手名自動マッチング
   useEffect(() => {
@@ -294,38 +363,57 @@ export default function ProgramImportConfirm() {
   };
 
   const handleCreateAll = () => {
-    // すべてのプログラムに選手が割り当てられているか確認
-    const unassignedCount = parsedPrograms.filter(p => !p.selectedAthleteId).length;
-    if (unassignedCount > 0) {
-      toast.error(`${unassignedCount}件のプログラムに選手が割り当てられていません`);
+    // スキップ対象外のプログラムのみをインポート対象とする
+    const activePrograms = parsedPrograms.filter((_, idx) => importActions[idx] !== "skip");
+
+    if (activePrograms.length === 0) {
+      toast.error("作成対象のプログラムがありません（すべてスキップに設定されています）");
       return;
     }
 
-    const programsToCreate: ProgramFormData[] = parsedPrograms.map((prog) => ({
-      athleteId: prog.selectedAthleteId!,
-      date: prog.date || date,
-      phase: prog.phase || phase,
-      periodCategory: prog.periodCategory || periodCategory,
-      goal: prog.goal,
-      sections: prog.sections.map((sec, secIdx) => ({
-        category: sec.category,
-        sortOrder: secIdx,
-        exercises: sec.exercises.map((ex, exIdx) => ({
-          name: ex.name,
-          sets: ex.sets,
-          reps: ex.reps,
-          load: ex.load,
-          attention: ex.attention,
-          sortOrder: exIdx,
-        })),
-      })),
-    }));
+    // 作成対象の中に選手未割り当てのものがないかチェック
+    const unassignedCount = activePrograms.filter(p => !p.selectedAthleteId).length;
+    if (unassignedCount > 0) {
+      toast.error(`作成対象のプログラムのうち、${unassignedCount}件に選手が割り当てられていません`);
+      return;
+    }
+
+    const programsToCreate: ProgramFormData[] = parsedPrograms
+      .map((prog, idx) => {
+        const action = importActions[idx] || "create";
+        if (action === "skip") return null;
+
+        const dup = duplicateStates[idx];
+        const overwriteProgramId = action === "overwrite" ? dup?.existingProgramId : undefined;
+
+        return {
+          athleteId: prog.selectedAthleteId!,
+          date: prog.date || date,
+          phase: prog.phase || phase,
+          periodCategory: prog.periodCategory || periodCategory,
+          goal: prog.goal,
+          overwriteProgramId, // 上書き対象のIDを付与
+          sections: prog.sections.map((sec, secIdx) => ({
+            category: sec.category,
+            sortOrder: secIdx,
+            exercises: sec.exercises.map((ex, exIdx) => ({
+              name: ex.name,
+              sets: ex.sets,
+              reps: ex.reps,
+              load: ex.load,
+              attention: ex.attention,
+              sortOrder: exIdx,
+            })),
+          })),
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
 
     setIsCreating(true);
     bulkCreateMutation.mutate(programsToCreate);
   };
 
-  const allAssigned = parsedPrograms.every(p => p.selectedAthleteId);
+  const allAssigned = parsedPrograms.every((p, idx) => importActions[idx] === "skip" || p.selectedAthleteId);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -380,22 +468,52 @@ export default function ProgramImportConfirm() {
             <CardContent>
               <ScrollArea className="h-96">
                 <div className="space-y-2 pr-4">
-                  {parsedPrograms.map((prog, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedTabIndex(idx)}
-                      className={`w-full text-left p-3 rounded-lg border transition ${
-                        selectedTabIndex === idx
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "hover:bg-muted border-muted"
-                      }`}
-                    >
-                      <div className="font-medium text-sm">{prog.athleteName}</div>
-                      <div className="text-xs opacity-75">
-                        {prog.selectedAthleteId ? "✓ 割り当て済み" : "未割り当て"}
-                      </div>
-                    </button>
-                  ))}
+                  {parsedPrograms.map((prog, idx) => {
+                    const dup = duplicateStates[idx];
+                    const action = importActions[idx] || "create";
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedTabIndex(idx)}
+                        className={`w-full text-left p-3 rounded-lg border transition relative ${
+                          selectedTabIndex === idx
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : action === "skip"
+                            ? "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-500 opacity-60"
+                            : dup?.isDuplicate
+                            ? "border-amber-400 bg-amber-50/30 hover:bg-amber-50/50"
+                            : "hover:bg-muted border-muted"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-sm">{prog.athleteName}</div>
+                          {dup?.isDuplicate && (
+                            <Badge 
+                              className={`text-[9px] px-1.5 py-0 h-4 border-0 font-medium shrink-0 ${
+                                dup.duplicateType === "exact"
+                                  ? "bg-red-500 text-white hover:bg-red-600"
+                                  : "bg-amber-500 text-white hover:bg-amber-600"
+                              }`}
+                            >
+                              {dup.duplicateType === "exact" ? "完全重複" : "同一日重複"}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-[11px] opacity-75 mt-1 flex justify-between items-center">
+                          <span>
+                            {prog.selectedAthleteId ? "✓ 選手割り当て済" : "選手未割り当て"}
+                          </span>
+                          {action === "skip" && (
+                            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-semibold">スキップ</span>
+                          )}
+                          {action === "overwrite" && (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">上書き</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -413,6 +531,50 @@ export default function ProgramImportConfirm() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* 重複警告とアクション選択 */}
+              {duplicateStates[selectedTabIndex]?.isDuplicate && (
+                <div className={`p-4 rounded-xl border flex flex-col gap-3 ${
+                  duplicateStates[selectedTabIndex].duplicateType === "exact"
+                    ? "bg-red-50/40 border-red-200 text-red-900"
+                    : "bg-amber-50/40 border-amber-200 text-amber-900"
+                }`}>
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className={`h-5 w-5 shrink-0 mt-0.5 ${
+                      duplicateStates[selectedTabIndex].duplicateType === "exact" ? "text-red-600" : "text-amber-600"
+                    }`} />
+                    <div className="text-xs space-y-1">
+                      <p className="font-bold text-sm">
+                        {duplicateStates[selectedTabIndex].duplicateType === "exact"
+                          ? "すでに全く同じ日付・種目構成のプログラムが登録されています（完全重複）"
+                          : "同一日付にこの選手への別プログラムがすでに登録されています（同一日重複）"}
+                      </p>
+                      <p className="opacity-80">
+                        既存プログラム: {duplicateStates[selectedTabIndex].existingProgramName}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 border-t pt-3 mt-1">
+                    <label className="text-xs font-bold shrink-0">このプログラムのインポート処理方法:</label>
+                    <Select
+                      value={importActions[selectedTabIndex] || "create"}
+                      onValueChange={(val: "create" | "overwrite" | "skip") => {
+                        setImportActions(prev => ({ ...prev, [selectedTabIndex]: val }));
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="skip">インポートをスキップする</SelectItem>
+                        <SelectItem value="overwrite">既存データを上書きする</SelectItem>
+                        <SelectItem value="create">新規プログラムとして追加する</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
               {/* Athlete Assignment */}
               <div className="space-y-2">
                 <Label>選手割り当て</Label>

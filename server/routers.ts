@@ -49,6 +49,7 @@ const programInput = z.object({
   totalSets: z.number().optional(),
   notes: z.string().optional(),
   sections: z.array(sectionInput),
+  overwriteProgramId: z.number().optional(),
 });
 
 const recordInput = z.object({
@@ -211,12 +212,58 @@ const programsRouter = router({
       return { programs };
     }),
 
+  checkDuplicate: protectedProcedure
+    .input(z.object({
+      athleteId: z.number(),
+      date: z.string(),
+      exerciseNames: z.array(z.string()),
+    }))
+    .query(async ({ input }) => {
+      const existingPrograms = await db_training.getProgramsByAthleteAndDate(input.athleteId, input.date);
+      if (existingPrograms.length === 0) {
+        return { isDuplicate: false, duplicateType: "none" as const };
+      }
+
+      const existing = existingPrograms[0];
+      const details = await db_training.getProgramWithDetails(existing.id);
+      
+      if (!details) {
+        return { isDuplicate: false, duplicateType: "none" as const };
+      }
+
+      // 種目構成の比較
+      const existingExerciseNames = details.sections
+        .flatMap(sec => sec.exercises.map(ex => ex.name.trim().toLowerCase()));
+
+      const inputExerciseNames = input.exerciseNames.map(name => name.trim().toLowerCase());
+
+      const existingSet = new Set(existingExerciseNames);
+      const inputSet = new Set(inputExerciseNames);
+
+      const isExactMatch = 
+        existingSet.size === inputSet.size && 
+        [...existingSet].every(name => inputSet.has(name));
+
+      return {
+        isDuplicate: true,
+        duplicateType: isExactMatch ? ("exact" as const) : ("partial" as const),
+        existingProgramId: existing.id,
+        existingProgramName: `${existing.date} - ${details.phase || "プログラム"}`
+      };
+    }),
+
   bulkCreate: protectedProcedure
     .input(z.array(programInput))
     .mutation(async ({ input }) => {
       const results: any[] = [];
       for (const programData of input) {
-        const { sections: sectionData, ...pData } = programData;
+        const { sections: sectionData, overwriteProgramId, ...pData } = programData;
+        
+        // 重複上書き指示がある場合は既存プログラムを事前に一括削除
+        if (overwriteProgramId) {
+          await db_training.bulkDeletePrograms([overwriteProgramId]);
+        }
+
         const result = await db_training.createProgram(pData);
         const programs = await db_training.getPrograms(pData.athleteId);
         const newProgram = programs[0];

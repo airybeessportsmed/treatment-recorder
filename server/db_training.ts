@@ -60,6 +60,16 @@ export async function deleteAthlete(id: number) {
 // =====================
 // Programs
 // =====================
+export async function getProgramsByAthleteAndDate(athleteId: number, date: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(programs)
+    .where(and(eq(programs.athleteId, athleteId), eq(programs.date, date)))
+    .limit(10);
+}
+
 export async function getPrograms(athleteId?: number) {
   const db = await getDb();
   if (!db) return [];
