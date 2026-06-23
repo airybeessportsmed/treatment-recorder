@@ -110,6 +110,9 @@ export default function PhotoOCR() {
       toast.success("解析結果をデータベースに保存しました");
       utils.records.history.invalidate();
       utils.programs.list.invalidate();
+      setSelectedAthleteId("");
+      setSelectedProgramId("");
+      reset();
     },
     onError: (e) => toast.error("保存に失敗しました: " + e.message),
   });
