@@ -51,6 +51,12 @@ export default function PhotoOCR() {
     { athleteId: selectedAthleteId ? parseInt(selectedAthleteId) : undefined },
     { enabled: !!selectedAthleteId }
   );
+  const { data: programDetails } = trpc.programs.get.useQuery(
+    { id: parseInt(selectedProgramId) },
+    { enabled: !!selectedProgramId }
+  );
+
+  const [editRecords, setEditRecords] = useState<any[]>([]);
 
   // 選択されたプログラムの日付を自動で実施日（デフォルト値）としてセットする
   useEffect(() => {
@@ -75,11 +81,37 @@ export default function PhotoOCR() {
   const analyzeMutation = trpc.photos.analyze.useMutation({
     onSuccess: (data) => {
       setOcrResult(data.parsed);
+      
+      if (data.parsed && data.parsed.records) {
+        const initialEditRecords = data.parsed.records.map((r: OcrRecord) => {
+          const setsCount = r.plannedSets || 1;
+          const setResults = [...r.setResults];
+          while (setResults.length < setsCount) {
+            setResults.push("");
+          }
+          return {
+            ...r,
+            setResults,
+            changeReason: "",
+            changeNote: "",
+          };
+        });
+        setEditRecords(initialEditRecords);
+      }
+
       setStep("done");
-      toast.success("OCR解析が完了しました！記録が自動保存されました");
-      utils.records.history.invalidate();
+      toast.success("OCR解析が完了しました！内容を確認・編集して保存してください");
     },
     onError: () => toast.error("OCR解析に失敗しました"),
+  });
+
+  const bulkSaveMutation = trpc.records.bulkSave.useMutation({
+    onSuccess: () => {
+      toast.success("解析結果をデータベースに保存しました");
+      utils.records.history.invalidate();
+      utils.programs.list.invalidate();
+    },
+    onError: (e) => toast.error("保存に失敗しました: " + e.message),
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,12 +163,111 @@ export default function PhotoOCR() {
     setUploadedPhotoId(null);
     setUploadedPhotoUrl(null);
     setOcrResult(null);
+    setEditRecords([]);
     setStep("select");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleSetLoadChange = (recordIdx: number, setIdx: number, val: string) => {
+    setEditRecords(prev => {
+      const next = [...prev];
+      const rec = { ...next[recordIdx] };
+      const setResults = [...rec.setResults];
+      setResults[setIdx] = val;
+      rec.setResults = setResults;
+      next[recordIdx] = rec;
+      return next;
+    });
+  };
+
+  const handleChangeReasonChange = (recordIdx: number, val: string) => {
+    setEditRecords(prev => {
+      const next = [...prev];
+      const rec = { ...next[recordIdx] };
+      rec.changeReason = val;
+      next[recordIdx] = rec;
+      return next;
+    });
+  };
+
+  const handleChangeNoteChange = (recordIdx: number, val: string) => {
+    setEditRecords(prev => {
+      const next = [...prev];
+      const rec = { ...next[recordIdx] };
+      rec.changeNote = val;
+      next[recordIdx] = rec;
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    if (!selectedProgramId || !selectedAthleteId || !programDetails) {
+      toast.error("プログラム情報が取得できません");
+      return;
+    }
+
+    const recordsToInsert: any[] = [];
+    const allExercises = programDetails.sections.flatMap(s => s.exercises);
+
+    for (const editRec of editRecords) {
+      const normalize = (s: string) => s.replace(/[\s　・・（）()]/g, "").toLowerCase();
+      const normOcr = normalize(editRec.exerciseName);
+
+      const matchedExercises = allExercises.filter(e => {
+        const normEx = normalize(e.name);
+        return normEx === normOcr ||
+          normEx.includes(normOcr) ||
+          normOcr.includes(normEx) ||
+          (normOcr.length >= 4 && normEx.startsWith(normOcr.slice(0, 4)));
+      });
+
+      if (matchedExercises.length > 0) {
+        const activeSetResults = editRec.setResults.map((l: string) => l.trim()).filter(Boolean);
+
+        if (activeSetResults.length > 0) {
+          activeSetResults.forEach((load: string, idx: number) => {
+            const matchedEx = matchedExercises[idx] || matchedExercises[matchedExercises.length - 1];
+            recordsToInsert.push({
+              programId: parseInt(selectedProgramId),
+              exerciseId: matchedEx.id,
+              athleteId: parseInt(selectedAthleteId),
+              date,
+              actualSets: 1,
+              actualReps: editRec.plannedReps ?? undefined,
+              actualLoad: load,
+              notes: idx === 0 ? (editRec.notes ?? undefined) : undefined,
+              source: "ocr" as const,
+              changeReason: editRec.changeReason ? editRec.changeReason : null,
+              changeNote: editRec.changeNote ? editRec.changeNote : null,
+            });
+          });
+        } else {
+          const matchedEx = matchedExercises[0];
+          recordsToInsert.push({
+            programId: parseInt(selectedProgramId),
+            exerciseId: matchedEx.id,
+            athleteId: parseInt(selectedAthleteId),
+            date,
+            actualSets: editRec.plannedSets ?? undefined,
+            actualReps: editRec.plannedReps ?? undefined,
+            actualLoad: undefined,
+            notes: editRec.notes ?? undefined,
+            source: "ocr" as const,
+            changeReason: editRec.changeReason ? editRec.changeReason : null,
+            changeNote: editRec.changeNote ? editRec.changeNote : null,
+          });
+        }
+      }
+    }
+
+    bulkSaveMutation.mutate({
+      programId: parseInt(selectedProgramId),
+      records: recordsToInsert,
+    });
+  };
+
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">写真OCR 記録読み取り</h1>
       </div>
@@ -298,10 +429,12 @@ export default function PhotoOCR() {
             )}
 
             {step === "done" && ocrResult && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-medium">解析完了・記録を自動保存しました</span>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="font-semibold text-sm">解析が完了しました。内容を確認・修正して保存してください。</span>
+                  </div>
                 </div>
 
                 {ocrResult.generalNotes && (
@@ -311,51 +444,97 @@ export default function PhotoOCR() {
                   </div>
                 )}
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left py-2 px-2 font-semibold">種目</th>
-                        <th className="text-center py-2 px-1 font-semibold">SET</th>
-                        <th className="text-center py-2 px-1 font-semibold">回数</th>
-                        <th className="text-center py-2 px-1 font-semibold text-muted-foreground">計画負荷</th>
-                        <th className="text-center py-2 px-1 font-semibold text-green-700">実績負荷</th>
-                        <th className="text-left py-2 px-1 font-semibold">メモ</th>
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left py-2.5 px-3 font-semibold w-[180px]">種目</th>
+                        <th className="text-center py-2.5 px-1 font-semibold w-[60px]">計画SET</th>
+                        <th className="text-center py-2.5 px-1 font-semibold w-[70px]">計画回数</th>
+                        <th className="text-center py-2.5 px-1 font-semibold text-muted-foreground w-[70px]">計画負荷</th>
+                        <th className="text-left py-2.5 px-3 font-semibold text-green-800 w-[120px]">実績負荷（セット別）</th>
+                        <th className="text-left py-2.5 px-3 font-semibold w-[220px]">変更理由 ＆ メモ</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {ocrResult.records.map((r, i) => (
-                        <tr key={i} className={`border-b last:border-0 ${r.setResults && r.setResults.length > 0 ? "bg-green-50/50" : ""}`}>
-                          <td className="py-2 px-2 font-medium">
-                            <div>{r.exerciseName}</div>
-                            {r.section && <div className="text-muted-foreground text-xs">{r.section}</div>}
+                      {editRecords.map((r, i) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 font-medium">
+                            <div className="font-semibold">{r.exerciseName}</div>
+                            {r.section && <Badge variant="secondary" className="text-[9px] px-1 py-0 mt-0.5">{r.section}</Badge>}
                           </td>
-                          <td className="text-center py-2 px-1">{r.plannedSets ?? "-"}</td>
-                          <td className="text-center py-2 px-1">{r.plannedReps ?? "-"}</td>
-                          <td className="text-center py-2 px-1 text-muted-foreground">{r.plannedLoad ?? "-"}</td>
-                          <td className="text-center py-2 px-1">
-                            {r.setResults && r.setResults.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 justify-center">
-                                {r.setResults.map((load, si) => (
-                                  <span key={si} className="font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded text-xs">
-                                    {load}kg
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">–</span>
-                            )}
+                          <td className="text-center py-2.5 px-1 font-mono">{r.plannedSets ?? "-"}</td>
+                          <td className="text-center py-2.5 px-1 font-mono">{r.plannedReps ?? "-"}</td>
+                          <td className="text-center py-2.5 px-1 text-muted-foreground font-mono">{r.plannedLoad ?? "-"}</td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex flex-col gap-1.5">
+                              {r.setResults.map((load: string, si: number) => (
+                                <div key={si} className="flex items-center gap-1">
+                                  <span className="text-[10px] text-muted-foreground w-6 text-right font-mono">#{si + 1}:</span>
+                                  <Input
+                                    type="text"
+                                    className="w-16 h-7 text-xs text-center font-bold bg-white"
+                                    value={load}
+                                    onChange={(e) => handleSetLoadChange(i, si, e.target.value)}
+                                  />
+                                  <span className="text-[10px] text-muted-foreground">kg</span>
+                                </div>
+                              ))}
+                            </div>
                           </td>
-                          <td className="py-2 px-1 text-muted-foreground">{r.notes ?? ""}</td>
+                          <td className="py-2.5 px-3 space-y-2">
+                            <div className="space-y-1">
+                              <Label className="text-[9px] text-muted-foreground block">変更理由</Label>
+                              <Select
+                                value={r.changeReason || "none"}
+                                onValueChange={(val) => handleChangeReasonChange(i, val === "none" ? "" : val)}
+                              >
+                                <SelectTrigger className="w-full h-8 text-[11px] bg-white">
+                                  <SelectValue placeholder="選択なし" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">選択なし</SelectItem>
+                                  <SelectItem value="condition">コンディション</SelectItem>
+                                  <SelectItem value="injury">傷害・痛み</SelectItem>
+                                  <SelectItem value="technique">技術・フォーム</SelectItem>
+                                  <SelectItem value="plan">計画変更</SelectItem>
+                                  <SelectItem value="other">その他</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[9px] text-muted-foreground block">理由詳細メモ</Label>
+                              <Input
+                                type="text"
+                                placeholder="変更の具体的な理由など"
+                                className="w-full h-8 text-[11px] bg-white"
+                                value={r.changeNote || ""}
+                                onChange={(e) => handleChangeNoteChange(i, e.target.value)}
+                              />
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
 
-                <Button variant="outline" onClick={reset} className="w-full">
-                  別の写真を読み取る
-                </Button>
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={reset} className="flex-1 rounded-xl">
+                    撮り直す（クリア）
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={bulkSaveMutation.isPending}
+                    className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  >
+                    {bulkSaveMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 保存中...</>
+                    ) : (
+                      <>確定して実績を保存</>
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-38b3625",
+    "date": "2026-06-22",
+    "version": "commit-38b3625",
+    "title": "perf: getDuplicateProgramGroups を一括取得するように最適化し、コネクション詰まりを解消",
+    "details": [
+      "perf: getDuplicateProgramGroups を一括取得するように最適化し、コネクション詰まりを解消"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-6ad41e9",
     "date": "2026-06-22",
     "version": "commit-6ad41e9",
@@ -283,16 +293,6 @@
     "id": "update-fc23d00",
     "date": "2026-06-20",
     "version": "commit-fc23d00",
-    "title": "Update migrate_training_data.ts",
-    "details": [
-      "Update migrate_training_data.ts"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-2852b6f",
-    "date": "2026-06-20",
-    "version": "commit-2852b6f",
     "title": "Update migrate_training_data.ts",
     "details": [
       "Update migrate_training_data.ts"

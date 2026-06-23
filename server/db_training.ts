@@ -182,6 +182,12 @@ export async function deleteProgram(id: number) {
   await db.delete(programs).where(eq(programs.id, id));
 }
 
+export async function deleteRecordsByProgramId(programId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(records).where(eq(records.programId, programId));
+}
+
 export async function bulkDeletePrograms(ids: number[]) {
   const db = await getDb();
   if (!db || ids.length === 0) return;

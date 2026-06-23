@@ -344,9 +344,32 @@ const recordsRouter = router({
   }),
 
   bulkSave: protectedProcedure
-    .input(z.array(recordInput))
+    .input(z.object({
+      programId: z.number(),
+      records: z.array(z.object({
+        programId: z.number(),
+        exerciseId: z.number(),
+        athleteId: z.number(),
+        date: z.string(),
+        actualSets: z.number().optional(),
+        actualReps: z.string().optional(),
+        actualLoad: z.string().optional(),
+        notes: z.string().optional(),
+        source: z.enum(["manual", "ocr"]).default("ocr"),
+        changeReason: z.enum(["condition", "injury", "technique", "plan", "other"]).optional().nullable(),
+        changeNote: z.string().optional().nullable(),
+      }))
+    }))
     .mutation(async ({ input }) => {
-      await db_training.bulkInsertRecords(input);
+      await db_training.deleteRecordsByProgramId(input.programId);
+      if (input.records.length > 0) {
+        const insertData = input.records.map(r => ({
+          ...r,
+          changeReason: r.changeReason || null,
+          changeNote: r.changeNote || null,
+        }));
+        await db_training.bulkInsertRecords(insertData);
+      }
       return { success: true };
     }),
 
@@ -501,72 +524,6 @@ ${exerciseNames}
           ocrRawResult: rawText,
           ocrParsed: parsed,
         });
-
-        if (programDetails && parsed.records) {
-          const allExercises = programDetails.sections.flatMap(s => s.exercises);
-          const recordsToInsert: Array<{
-            programId: number;
-            exerciseId: number;
-            athleteId: number;
-            date: string;
-            actualSets?: number;
-            actualReps?: string;
-            actualLoad?: string;
-            notes?: string;
-            source: "ocr";
-          }> = [];
-
-          for (const ocrRecord of parsed.records) {
-            const setResults: string[] = Array.isArray(ocrRecord.setResults) ? ocrRecord.setResults : [];
-            if (setResults.length === 0 && !ocrRecord.notes) continue;
-
-            const normalize = (s: string) => s.replace(/[\s　・・（）()]/g, "").toLowerCase();
-            const normOcr = normalize(ocrRecord.exerciseName);
-
-            const matchedExercises = allExercises.filter(e => {
-              const normEx = normalize(e.name);
-              return normEx === normOcr ||
-                normEx.includes(normOcr) ||
-                normOcr.includes(normEx) ||
-                (normOcr.length >= 4 && normEx.startsWith(normOcr.slice(0, 4)));
-            });
-
-            if (matchedExercises.length > 0) {
-              if (setResults.length > 0) {
-                setResults.forEach((load, idx) => {
-                  const matchedEx = matchedExercises[idx] || matchedExercises[matchedExercises.length - 1];
-                  recordsToInsert.push({
-                    programId,
-                    exerciseId: matchedEx.id,
-                    athleteId,
-                    date,
-                    actualSets: 1,
-                    actualReps: ocrRecord.plannedReps ?? undefined,
-                    actualLoad: load,
-                    notes: idx === 0 ? (ocrRecord.notes ?? undefined) : undefined,
-                    source: "ocr" as const,
-                  });
-                });
-              } else {
-                const matchedEx = matchedExercises[0];
-                recordsToInsert.push({
-                  programId,
-                  exerciseId: matchedEx.id,
-                  athleteId,
-                  date,
-                  actualSets: ocrRecord.plannedSets ?? undefined,
-                  actualReps: ocrRecord.plannedReps ?? undefined,
-                  actualLoad: undefined,
-                  notes: ocrRecord.notes ?? undefined,
-                  source: "ocr" as const,
-                });
-              }
-            }
-          }
-          if (recordsToInsert.length > 0) {
-            await db_training.bulkInsertRecords(recordsToInsert);
-          }
-        }
 
         try {
           const photo = await db_training.getPhotosByProgram(programId);
