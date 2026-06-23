@@ -24,7 +24,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Loader2, AlertCircle, Edit2, X, UserPlus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, AlertCircle, Edit2, X, UserPlus, FileText } from "lucide-react";
 
 interface ParsedProgram {
   athleteName: string;
@@ -111,6 +111,8 @@ export default function ProgramImportConfirm() {
   const [targetProgramIndex, setTargetProgramIndex] = useState<number | null>(null);
   const [autoMatched, setAutoMatched] = useState(false);
   const [batchDateInput, setBatchDateInput] = useState("");
+  const [importedFileName, setImportedFileName] = useState("");
+  const [batchPhaseInput, setBatchPhaseInput] = useState("");
 
   const utils = trpc.useUtils();
   const { data: athletes } = trpc.athletes.list.useQuery(undefined);
@@ -151,6 +153,10 @@ export default function ProgramImportConfirm() {
   // sessionStorageから読み込んだプログラムを取得
   useEffect(() => {
     const storedPrograms = sessionStorage.getItem("importedPrograms");
+    const storedFileName = sessionStorage.getItem("importedFileName");
+    if (storedFileName) {
+      setImportedFileName(storedFileName);
+    }
     if (storedPrograms && parsedPrograms.length === 0) {
       try {
         const programs = JSON.parse(storedPrograms);
@@ -160,6 +166,7 @@ export default function ProgramImportConfirm() {
           setPhase(programs[0].phase || "");
           setPeriodCategory(programs[0].periodCategory || "");
           setBatchDateInput(programs[0].date || "");
+          setBatchPhaseInput(programs[0].phase || "");
         }
       } catch (e) {
         toast.error("セッションデータが無効です");
@@ -274,6 +281,20 @@ export default function ProgramImportConfirm() {
     setParsedPrograms(updated);
     setDate(batchDateInput);
     toast.success("全選手の日付を一括更新しました");
+  };
+
+  const handleApplyBatchPhase = () => {
+    if (!batchPhaseInput.trim()) {
+      toast.error("フェーズを入力してください");
+      return;
+    }
+    const updated = parsedPrograms.map((p) => ({
+      ...p,
+      phase: batchPhaseInput.trim(),
+    }));
+    setParsedPrograms(updated);
+    setPhase(batchPhaseInput.trim());
+    toast.success("全選手のフェーズを一括更新しました");
   };
 
   if (parsedPrograms.length === 0) {
@@ -436,25 +457,62 @@ export default function ProgramImportConfirm() {
         </p>
       </div>
 
-      {/* 日付一括修正エリア */}
+      {/* インポート情報 ＆ 一括修正エリア */}
       <Card className="mb-6 bg-primary/5 border-primary/20">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="font-semibold text-sm">全選手の日付を一括修正</h3>
-            <p className="text-xs text-muted-foreground">
-              インポートしたすべての選手プログラムの日付を指定した日に一括で上書き変更します。
-            </p>
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto shrink-0">
-            <Input
-              type="date"
-              value={batchDateInput}
-              onChange={(e) => setBatchDateInput(e.target.value)}
-              className="w-full sm:w-48 bg-background"
-            />
-            <Button onClick={handleApplyBatchDate} type="button" variant="secondary" className="shrink-0">
-              一括適用
-            </Button>
+        <CardContent className="p-5 space-y-4">
+          {/* ファイル名表示 */}
+          {importedFileName && (
+            <div className="flex items-center gap-2 pb-3 border-b border-primary/10">
+              <FileText className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground">インポート元ファイル:</span>
+              <Badge variant="secondary" className="font-mono text-xs bg-background border border-primary/10 px-2 py-0.5">
+                {importedFileName}
+              </Badge>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 日付一括適用 */}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <h3 className="font-semibold text-sm">全選手の日付を一括修正</h3>
+                <p className="text-xs text-muted-foreground">
+                  すべての選手プログラムの日付を一括で上書き変更します。
+                </p>
+              </div>
+              <div className="flex gap-2 w-full">
+                <Input
+                  type="date"
+                  value={batchDateInput}
+                  onChange={(e) => setBatchDateInput(e.target.value)}
+                  className="bg-background"
+                />
+                <Button onClick={handleApplyBatchDate} type="button" variant="secondary" className="shrink-0">
+                  一括適用
+                </Button>
+              </div>
+            </div>
+
+            {/* フェーズ一括適用 */}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <h3 className="font-semibold text-sm">全選手のフェーズを一括修正</h3>
+                <p className="text-xs text-muted-foreground">
+                  すべての選手プログラムのフェーズを一括で上書き変更します。
+                </p>
+              </div>
+              <div className="flex gap-2 w-full">
+                <Input
+                  placeholder="例: 筋肥大期, Phase 1"
+                  value={batchPhaseInput}
+                  onChange={(e) => setBatchPhaseInput(e.target.value)}
+                  className="bg-background"
+                />
+                <Button onClick={handleApplyBatchPhase} type="button" variant="secondary" className="shrink-0">
+                  一括適用
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
