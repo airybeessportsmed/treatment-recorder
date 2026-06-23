@@ -75,6 +75,20 @@ export default function ProgramDetail() {
     onError: () => toast.error("保存に失敗しました"),
   });
 
+  const clearRecordsMutation = trpc.records.clearByProgram.useMutation({
+    onSuccess: () => {
+      toast.success("実績記録をクリアしました");
+      utils.records.listByProgram.invalidate({ programId });
+    },
+    onError: (e) => toast.error("実績のクリアに失敗しました: " + e.message),
+  });
+
+  const handleClearRecords = () => {
+    if (confirm("このプログラムの実績データをすべて削除しますか？\n(プログラムや種目構成は削除されません)")) {
+      clearRecordsMutation.mutate({ programId });
+    }
+  };
+
   const recordsByExerciseId = useMemo(() => {
     if (!records) return new Map<string, typeof records>();
     const map = new Map<string, typeof records>();
@@ -247,33 +261,46 @@ export default function ProgramDetail() {
           </div>
 
           {/* 実績記録ステータス */}
-          <div className="mt-3 pt-3 border-t flex items-center gap-2">
-            {hasRecords ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-700 font-medium">
-                  実績記録あり（{records.length}件）
-                </span>
-              </>
-            ) : (
-              <>
-                <Circle className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  実績記録なし —
-                </span>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-sm"
-                  onClick={() =>
-                    setLocation(
-                      `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
-                    )
-                  }
-                >
-                  写真を撮影して記録を追加
-                </Button>
-              </>
+          <div className="mt-3 pt-3 border-t flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {hasRecords ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700 font-medium">
+                    実績記録あり（{records.length}件）
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Circle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    実績記録なし —
+                  </span>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-sm"
+                    onClick={() =>
+                      setLocation(
+                        `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
+                      )
+                    }
+                  >
+                    写真を撮影して記録を追加
+                  </Button>
+                </>
+              )}
+            </div>
+            {hasRecords && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/20 hover:bg-destructive/10 h-7 text-xs"
+                onClick={handleClearRecords}
+                disabled={clearRecordsMutation.isPending}
+              >
+                {clearRecordsMutation.isPending ? "クリア中..." : "実績をクリア"}
+              </Button>
             )}
           </div>
         </CardContent>
