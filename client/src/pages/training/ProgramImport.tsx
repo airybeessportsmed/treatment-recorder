@@ -114,6 +114,7 @@ export default function ProgramImport() {
       "importedPrograms",
       JSON.stringify(parsedPrograms)
     );
+    sessionStorage.setItem("importedFileName", selectedFileName);
     setPreviewDialogOpen(false);
     setLocation("/training/programs/import/confirm");
   };
