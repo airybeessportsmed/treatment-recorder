@@ -376,6 +376,13 @@ const recordsRouter = router({
   history: protectedProcedure
     .input(z.object({ athleteId: z.number() }))
     .query(({ input }) => db_training.getExerciseHistory(input.athleteId)),
+
+  clearByProgram: protectedProcedure
+    .input(z.object({ programId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db_training.deleteRecordsByProgramId(input.programId);
+      return { success: true };
+    }),
 });
 
 const photosRouter = router({
