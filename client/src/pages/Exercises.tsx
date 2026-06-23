@@ -471,7 +471,11 @@ export default function Exercises() {
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button disabled={selectedPlayerId === "all"} className="rounded-xl font-semibold gap-1.5 shadow-md self-start sm:self-center">
+            <Button
+              disabled={selectedPlayerId === "all"}
+              onClick={() => resetForm()}
+              className="rounded-xl font-semibold gap-1.5 shadow-md self-start sm:self-center"
+            >
               <Plus className="h-4 w-4" />
               セッションを登録する
             </Button>
@@ -851,24 +855,27 @@ export default function Exercises() {
                           担当: {session.createdByName || "不明"}
                         </span>
                         
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => handleEditClick(session)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => setDeletingSessionId(session.sessionId)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {/* 編集・削除ボタンは作成者本人または管理者のみ表示 */}
+                        {(session.createdBy === user?.id || user?.role === "admin") && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleEditClick(session)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeletingSessionId(session.sessionId)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
 
@@ -941,7 +948,14 @@ export default function Exercises() {
                 {selectedPlayerId === "all" ? "該当するエクササイズがまだ登録されていません。" : "この選手には該当するエクササイズが提供されていません。"}
               </p>
               {selectedPlayerId !== "all" && (
-                <Button onClick={() => setIsDialogOpen(true)} variant="link" className="text-xs text-primary font-semibold mt-1.5 p-0">
+                <Button
+                  onClick={() => {
+                    resetForm();
+                    setIsDialogOpen(true);
+                  }}
+                  variant="link"
+                  className="text-xs text-primary font-semibold mt-1.5 p-0"
+                >
                   最初のエクササイズを登録する
                 </Button>
               )}
