@@ -37,6 +37,14 @@ export default function UserApproval() {
     onError: () => toast.error("操作に失敗しました"),
   });
 
+  const updatePermissionsMutation = trpc.approval.updatePermissions.useMutation({
+    onSuccess: () => {
+      utils.approval.list.invalidate();
+      toast.success("権限を更新しました");
+    },
+    onError: () => toast.error("権限の更新に失敗しました"),
+  });
+
   if (user?.role !== "admin") {
     return (
       <DashboardLayout>
@@ -161,27 +169,74 @@ export default function UserApproval() {
             </CardHeader>
             <CardContent>
               <div className="divide-y">
-                {otherList.map(({ approval, user: u }) => (
-                  <div key={approval.id} className="flex items-center justify-between py-3 gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm text-foreground truncate">{u?.name ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground truncate">{u?.email ?? "—"}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {statusBadge(approval.status)}
-                      {approval.status === "pending" && (
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" className="gap-1 text-red-600 border-red-200" onClick={() => openDialog(u!.id, u?.name ?? "このユーザー", "rejected")}>
-                            <XCircle className="h-3 w-3" />拒否
-                          </Button>
-                          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => openDialog(u!.id, u?.name ?? "このユーザー", "approved")}>
-                            <CheckCircle className="h-3 w-3" />承認
-                          </Button>
+                {otherList.map(({ approval, user: u }) => {
+                  const handlePermissionChange = (
+                    targetUserId: number,
+                    treatmentRole: "read" | "write" | "admin",
+                    trainingRole: "read" | "write" | "admin"
+                  ) => {
+                    updatePermissionsMutation.mutate({
+                      userId: targetUserId,
+                      treatmentRole,
+                      trainingRole,
+                    });
+                  };
+
+                  return (
+                    <div key={approval.id} className="flex flex-col md:flex-row md:items-center justify-between py-4 gap-4 border-b last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm text-foreground truncate">{u?.name ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u?.email ?? "—"}</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4">
+                        {approval.status === "approved" && u && (
+                          <div className="flex flex-wrap items-center gap-3 bg-muted/40 p-2 rounded-lg border border-muted">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">施術:</span>
+                              <select
+                                value={u.treatmentRole || "write"}
+                                onChange={(e) => handlePermissionChange(u.id, e.target.value as any, (u.trainingRole || "write") as any)}
+                                disabled={updatePermissionsMutation.isPending}
+                                className="h-8 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                              >
+                                <option value="read">閲覧のみ</option>
+                                <option value="write">書き込み可</option>
+                                <option value="admin">全権限 (admin)</option>
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">練習:</span>
+                              <select
+                                value={u.trainingRole || "write"}
+                                onChange={(e) => handlePermissionChange(u.id, (u.treatmentRole || "write") as any, e.target.value as any)}
+                                disabled={updatePermissionsMutation.isPending}
+                                className="h-8 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                              >
+                                <option value="read">閲覧のみ</option>
+                                <option value="write">書き込み可</option>
+                                <option value="admin">全権限 (admin)</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3">
+                          {statusBadge(approval.status)}
+                          {approval.status === "pending" && (
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="gap-1 text-red-600 border-red-200" onClick={() => openDialog(u!.id, u?.name ?? "このユーザー", "rejected")}>
+                                <XCircle className="h-3 w-3" />拒否
+                              </Button>
+                              <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => openDialog(u!.id, u?.name ?? "このユーザー", "approved")}>
+                                <CheckCircle className="h-3 w-3" />承認
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
