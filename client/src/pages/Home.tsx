@@ -939,13 +939,18 @@ export default function Home() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-[500px] mb-4 bg-muted/80 p-1 rounded-xl print:hidden">
+        <TabsList className={cn(
+          "grid max-w-[500px] mb-4 bg-muted/80 p-1 rounded-xl print:hidden",
+          user?.treatmentRole === "read" ? "grid-cols-2" : "grid-cols-3"
+        )}>
           <TabsTrigger value="dashboard" className="rounded-lg py-2 text-xs font-semibold">
             📊 ダッシュボード
           </TabsTrigger>
-          <TabsTrigger value="record" className="rounded-lg py-2 text-xs font-semibold">
-            ✍️ 新しく記録する
-          </TabsTrigger>
+          {user?.treatmentRole !== "read" && (
+            <TabsTrigger value="record" className="rounded-lg py-2 text-xs font-semibold">
+              ✍️ 新しく記録する
+            </TabsTrigger>
+          )}
           <TabsTrigger value="report" className="rounded-lg py-2 text-xs font-semibold">
             📁 期間集計・出力
           </TabsTrigger>
@@ -2119,7 +2124,7 @@ export default function Home() {
             <DialogTitle className="text-base font-bold">
               {isEditing ? "📝 治療記録を修正" : "📋 記録詳細"}
             </DialogTitle>
-            {detailData && !detailLoading && (
+            {detailData && !detailLoading && user?.treatmentRole !== "read" && (
               <Button
                 variant="ghost"
                 size="sm"
