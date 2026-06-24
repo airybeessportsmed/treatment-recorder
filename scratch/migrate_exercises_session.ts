@@ -9,21 +9,34 @@ async function main() {
     throw new Error("Could not initialize database connection");
   }
 
-  console.log("[Migration] Adding sessionId column to exercises table...");
-  
-  const ddl = `
-    ALTER TABLE \`exercises\` 
-    ADD COLUMN \`sessionId\` varchar(50) NOT NULL DEFAULT '';
+  console.log("[Migration] Adding treatmentRole and trainingRole columns to users table...");
+
+  const ddl1 = `
+    ALTER TABLE \`users\` 
+    ADD COLUMN \`treatmentRole\` varchar(20) NOT NULL DEFAULT 'write';
+  `;
+
+  const ddl2 = `
+    ALTER TABLE \`users\` 
+    ADD COLUMN \`trainingRole\` varchar(20) NOT NULL DEFAULT 'write';
   `;
 
   try {
-    await db.execute(sql.raw(ddl));
-    console.log("[Migration] Column sessionId added successfully!");
+    await db.execute(sql.raw(ddl1));
+    console.log("[Migration] Column treatmentRole added successfully!");
   } catch (error) {
-    console.error("[Migration] Failed to execute DDL:", error);
-  } finally {
-    process.exit(0);
+    console.warn("[Migration] Column treatmentRole failed or already exists:", error);
   }
+
+  try {
+    await db.execute(sql.raw(ddl2));
+    console.log("[Migration] Column trainingRole added successfully!");
+  } catch (error) {
+    console.warn("[Migration] Column trainingRole failed or already exists:", error);
+  }
+
+  console.log("[Migration] Migration completed!");
+  process.exit(0);
 }
 
 main().catch(console.error);
