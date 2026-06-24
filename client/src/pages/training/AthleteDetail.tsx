@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ClipboardList, Plus, BarChart2 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function AthleteDetail() {
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const athleteId = parseInt(id);
   const [, setLocation] = useLocation();
@@ -56,12 +58,14 @@ export default function AthleteDetail() {
             <ClipboardList className="h-5 w-5" />
             プログラム履歴 ({programs?.length ?? 0}件)
           </h2>
-          <Button
-            size="sm"
-            onClick={() => setLocation(`/training/programs/create?athleteId=${athleteId}`)}
-          >
-            <Plus className="h-4 w-4 mr-1" /> 新規作成
-          </Button>
+          {user?.trainingRole !== "read" && (
+            <Button
+              size="sm"
+              onClick={() => setLocation(`/training/programs/create?athleteId=${athleteId}`)}
+            >
+              <Plus className="h-4 w-4 mr-1" /> 新規作成
+            </Button>
+          )}
         </div>
 
         {!programs || programs.length === 0 ? (
