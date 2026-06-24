@@ -40,6 +40,7 @@ import {
   ArrowDown
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import {
   Table,
   TableBody,
@@ -62,6 +63,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function Programs() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [filterAthleteId, setFilterAthleteId] = useState<string>("all");
@@ -207,17 +209,21 @@ export default function Programs() {
           <Button variant="outline" size="sm" onClick={() => setBatchPrintOpen(true)}>
             <Printer className="h-4 w-4 mr-1" /> 一括印刷
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setLocation("/training/programs/import")}>
-            <Upload className="h-4 w-4 mr-1" /> PDFから読み込み
-          </Button>
-          <Button onClick={() => setLocation("/training/programs/create")} size="sm">
-            <Plus className="h-4 w-4 mr-1" /> 新規作成
-          </Button>
+          {user?.trainingRole !== "read" && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setLocation("/training/programs/import")}>
+                <Upload className="h-4 w-4 mr-1" /> PDFから読み込み
+              </Button>
+              <Button onClick={() => setLocation("/training/programs/create")} size="sm">
+                <Plus className="h-4 w-4 mr-1" /> 新規作成
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       {/* 重複整理バナー */}
-      {duplicates && duplicates.length > 0 && (
+      {user?.trainingRole !== "read" && duplicates && duplicates.length > 0 && (
         <div className="flex items-center justify-between p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl animate-in fade-in slide-in-from-top-1 duration-200">
           <span className="text-sm font-semibold text-amber-800">
             ⚠️ 重複して登録されているプログラムグループが {duplicates.length} 件あります。
@@ -302,13 +308,15 @@ export default function Programs() {
         <div className="text-center py-12 text-muted-foreground">
           <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p>プログラムがありません</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => setLocation("/training/programs/create")}>
-            最初のプログラムを作成する
-          </Button>
+          {user?.trainingRole !== "read" && (
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => setLocation("/training/programs/create")}>
+              最初のプログラムを作成する
+            </Button>
+          )}
         </div>
       ) : (
         <>
-          {selectedIds.length > 0 && (
+          {user?.trainingRole !== "read" && selectedIds.length > 0 && (
             <div className="flex items-center justify-between p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-xl animate-in fade-in slide-in-from-top-1 duration-200">
               <span className="text-sm font-semibold text-red-700">
                 {selectedIds.length}件 のプログラムを選択中
@@ -330,11 +338,13 @@ export default function Programs() {
               <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="w-[50px] text-center">
-                    <Checkbox
-                      checked={isAllSelected}
-                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                      aria-label="すべて選択"
-                    />
+                    {user?.trainingRole !== "read" && (
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                        aria-label="すべて選択"
+                      />
+                    )}
                   </TableHead>
                   <TableHead className="w-[80px] text-center font-semibold">背番号</TableHead>
                   <TableHead
@@ -396,11 +406,13 @@ export default function Programs() {
                     onClick={() => setLocation(`/training/programs/${program.id}`)}
                   >
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selectedIds.includes(program.id)}
-                        onCheckedChange={(checked) => handleSelectRow(program.id, !!checked)}
-                        aria-label={`プログラム ${program.id} を選択`}
-                      />
+                      {user?.trainingRole !== "read" && (
+                        <Checkbox
+                          checked={selectedIds.includes(program.id)}
+                          onCheckedChange={(checked) => handleSelectRow(program.id, !!checked)}
+                          aria-label={`プログラム ${program.id} を選択`}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="text-center font-bold text-slate-700">
                       #{athlete?.number ?? "?"}
@@ -448,15 +460,17 @@ export default function Programs() {
                             <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                             計画のみ
                           </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-[10px] text-primary hover:text-primary-hover hover:bg-primary/5 px-2 font-medium"
-                            onClick={() => setLocation(`/training/ocr?programId=${program.id}&athleteId=${program.athleteId}`)}
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            OCR取り込み
-                          </Button>
+                          {user?.trainingRole !== "read" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-[10px] text-primary hover:text-primary-hover hover:bg-primary/5 px-2 font-medium"
+                              onClick={() => setLocation(`/training/ocr?programId=${program.id}&athleteId=${program.athleteId}`)}
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              OCR取り込み
+                            </Button>
+                          )}
                         </div>
                       )}
                     </TableCell>
@@ -470,14 +484,16 @@ export default function Programs() {
                         >
                           詳細
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
-                          onClick={() => setLocation(`/training/programs/${program.id}/edit`)}
-                        >
-                          編集
-                        </Button>
+                        {user?.trainingRole !== "read" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
+                            onClick={() => setLocation(`/training/programs/${program.id}/edit`)}
+                          >
+                            編集
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
