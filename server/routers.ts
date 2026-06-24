@@ -70,6 +70,18 @@ const recordInput = z.object({
 // トレーニング管理アプリから移植されたサブルーター
 // ==========================================
 
+function checkTreatmentWrite(user: any) {
+  if (user.role === "admin") return;
+  if (user.treatmentRole === "write" || user.treatmentRole === "admin") return;
+  throw new TRPCError({ code: "FORBIDDEN", message: "トリートメント情報の変更権限がありません" });
+}
+
+function checkTrainingWrite(user: any) {
+  if (user.role === "admin") return;
+  if (user.trainingRole === "write" || user.trainingRole === "admin") return;
+  throw new TRPCError({ code: "FORBIDDEN", message: "トレーニング情報の変更権限がありません" });
+}
+
 const athletesRouter = router({
   list: protectedProcedure.query(() => db_training.getAthletes()),
 
@@ -78,6 +90,7 @@ const athletesRouter = router({
   ),
 
   create: protectedProcedure.input(athleteInput).mutation(async ({ ctx, input }) => {
+    checkTrainingWrite(ctx.user);
     const result = await db_training.createAthlete({
       name: input.name,
       number: input.number ?? 0,
@@ -92,12 +105,14 @@ const athletesRouter = router({
 
   update: protectedProcedure
     .input(z.object({ id: z.number(), data: athleteInput.partial() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       await db_training.updateAthlete(input.id, input.data);
       return { success: true };
     }),
 
-  delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+  delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    checkTrainingWrite(ctx.user);
     await db_training.deleteAthlete(input.id);
     return { success: true };
   }),
@@ -117,6 +132,7 @@ const programsRouter = router({
   ),
 
   create: protectedProcedure.input(programInput).mutation(async ({ ctx, input }) => {
+    checkTrainingWrite(ctx.user);
     const { sections: sectionData, ...programData } = input;
     const result = await db_training.createProgram(programData);
     const programs = await db_training.getPrograms(programData.athleteId);
@@ -144,7 +160,8 @@ const programsRouter = router({
 
   update: protectedProcedure
     .input(z.object({ id: z.number(), data: programInput }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const { sections: sectionData, ...programData } = input.data;
       await db_training.updateProgram(input.id, programData);
       const oldSections = await db_training.getSectionsByProgramId(input.id);
@@ -167,7 +184,8 @@ const programsRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+  delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    checkTrainingWrite(ctx.user);
     const oldSections = await db_training.getSectionsByProgramId(input.id);
     for (const sec of oldSections) {
       await db_training.deleteExercisesBySectionId(sec.id);
@@ -179,7 +197,8 @@ const programsRouter = router({
 
   bulkDelete: protectedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       await db_training.bulkDeletePrograms(input.ids);
       return { success: true };
     }),
@@ -202,7 +221,8 @@ const programsRouter = router({
 
   parsePDF: protectedProcedure
     .input(z.object({ fileBase64: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const buffer = Buffer.from(input.fileBase64, "base64");
       const programs = await parseProgramsFromPDF(buffer);
       return { programs };
@@ -210,7 +230,8 @@ const programsRouter = router({
 
   parseExcel: protectedProcedure
     .input(z.object({ fileBase64: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const buffer = Buffer.from(input.fileBase64, "base64");
       const programs = await parseProgramsFromExcel(buffer);
       return { programs };
@@ -290,7 +311,8 @@ const programsRouter = router({
 
   bulkCreate: protectedProcedure
     .input(z.array(programInput))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const results: any[] = [];
       for (const programData of input) {
         const { sections: sectionData, overwriteProgramId, ...pData } = programData;
@@ -338,7 +360,8 @@ const recordsRouter = router({
     .input(z.object({ athleteId: z.number() }))
     .query(({ input }) => db_training.getRecordsByAthlete(input.athleteId)),
 
-  upsert: protectedProcedure.input(recordInput).mutation(async ({ input }) => {
+  upsert: protectedProcedure.input(recordInput).mutation(async ({ ctx, input }) => {
+    checkTrainingWrite(ctx.user);
     await db_training.upsertRecord(input);
     return { success: true };
   }),
@@ -360,7 +383,8 @@ const recordsRouter = router({
         changeNote: z.string().optional().nullable(),
       }))
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       await db_training.deleteRecordsByProgramId(input.programId);
       if (input.records.length > 0) {
         const insertData = input.records.map(r => ({
@@ -379,7 +403,8 @@ const recordsRouter = router({
 
   clearByProgram: protectedProcedure
     .input(z.object({ programId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       await db_training.deleteRecordsByProgramId(input.programId);
       return { success: true };
     }),
@@ -401,7 +426,8 @@ const photosRouter = router({
         fileName: z.string().default("photo.jpg"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const { programId, athleteId, date, fileBase64, mimeType, fileName } = input;
       const buffer = Buffer.from(fileBase64, "base64");
       const key = `training-photos/${athleteId}/${date}-${Date.now()}-${fileName}`;
@@ -421,7 +447,8 @@ const photosRouter = router({
         imageUrl: z.string(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const { photoId, programId, athleteId, date, imageUrl } = input;
       await db_training.updatePhoto(photoId, { status: "processing" });
 
@@ -639,7 +666,10 @@ const exerciseMasterRouter = router({
       defaultLoad: z.string().optional(),
       attention: z.string().optional(),
     }))
-    .mutation(({ input }) => db_training.createExerciseMaster(input)),
+    .mutation(({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
+      return db_training.createExerciseMaster(input);
+    }),
   update: protectedProcedure
     .input(z.object({
       id: z.number(),
@@ -650,13 +680,17 @@ const exerciseMasterRouter = router({
       defaultLoad: z.string().optional(),
       attention: z.string().optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
       const { id, ...data } = input;
       return db_training.updateExerciseMaster(id, data);
     }),
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(({ input }) => db_training.deleteExerciseMaster(input.id)),
+    .mutation(({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
+      return db_training.deleteExerciseMaster(input.id);
+    }),
 
   parseExcel: protectedProcedure
     .input(z.object({ fileBase64: z.string() }))
@@ -746,7 +780,10 @@ const exerciseMasterRouter = router({
         defaultLoad: z.string().optional(),
       }))
     }))
-    .mutation(({ input }) => db_training.bulkInsertExerciseMasterSkipExisting(input.items)),
+    .mutation(({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
+      return db_training.bulkInsertExerciseMasterSkipExisting(input.items);
+    }),
 });
 
 const approvalRouter = router({
@@ -778,6 +815,21 @@ const approvalRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       await db_training.updateApprovalStatus(input.userId, input.status, ctx.user.id, input.note);
+      return { success: true };
+    }),
+
+  updatePermissions: protectedProcedure
+    .input(z.object({
+      userId: z.number(),
+      treatmentRole: z.enum(["read", "write", "admin"]),
+      trainingRole: z.enum(["read", "write", "admin"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      await db.updateUserPermissions(input.userId, {
+        treatmentRole: input.treatmentRole,
+        trainingRole: input.trainingRole,
+      });
       return { success: true };
     }),
 });
@@ -837,6 +889,7 @@ export const appRouter = router({
         position: z.string().min(1).max(50),
       }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         return db.createPlayer({
           name: input.name,
           number: input.number,
@@ -853,6 +906,7 @@ export const appRouter = router({
         position: z.string().min(1).max(50).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         const player = await db.getPlayerById(input.id);
         if (!player) {
           throw new TRPCError({ code: "NOT_FOUND", message: "選手が見つかりません" });
@@ -865,6 +919,7 @@ export const appRouter = router({
     delete: protectedProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         const player = await db.getPlayerById(input.id);
         if (!player) {
           throw new TRPCError({ code: "NOT_FOUND", message: "選手が見つかりません" });
@@ -1027,6 +1082,7 @@ export const appRouter = router({
         treatmentDate: z.date(),
       }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         return db.createTreatment({
           ...input,
           soapS: input.soapS ?? null,
@@ -1069,6 +1125,7 @@ export const appRouter = router({
         treatmentDate: z.date().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         const treatment = await db.getTreatmentById(input.id);
         if (!treatment) {
           throw new TRPCError({ code: "NOT_FOUND", message: "記録が見つかりません" });
@@ -1081,6 +1138,7 @@ export const appRouter = router({
     delete: protectedProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         const treatment = await db.getTreatmentById(input.id);
         if (!treatment) {
           throw new TRPCError({ code: "NOT_FOUND", message: "記録が見つかりません" });
@@ -1108,7 +1166,8 @@ export const appRouter = router({
         practicePm: z.string().nullable().optional(),
         assignments: z.string().nullable().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         await db.upsertSchedule(input);
         return { success: true };
       }),
@@ -1140,6 +1199,7 @@ export const appRouter = router({
         })).min(1),
       }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         const sessionId = crypto.randomUUID();
         const dataList = input.exercises.map(item => ({
           playerId: input.playerId,
@@ -1171,6 +1231,7 @@ export const appRouter = router({
         })).min(1),
       }))
       .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         return db.updateExercisesBySession(
           input.sessionId,
           input.playerId,
@@ -1188,7 +1249,8 @@ export const appRouter = router({
 
     delete: protectedProcedure
       .input(z.object({ sessionId: z.string().min(1) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         return db.deleteExercisesBySession(input.sessionId);
       }),
 
@@ -1197,7 +1259,8 @@ export const appRouter = router({
         sessionId: z.string().min(1),
         isCompleted: z.boolean(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        checkTreatmentWrite(ctx.user);
         return db.toggleExerciseSessionComplete(input.sessionId, input.isCompleted);
       }),
   }),
