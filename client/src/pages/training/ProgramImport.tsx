@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +39,16 @@ interface ParsedProgram {
 }
 
 export default function ProgramImport() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
+
+  if (user?.trainingRole === "read") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>この機能にアクセスする権限がありません。</p>
+      </div>
+    );
+  }
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [isParsing, setIsParsing] = useState(false);
