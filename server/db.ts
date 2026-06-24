@@ -271,6 +271,21 @@ export async function getAllUsers() {
   return db.select().from(users).where(eq(users.isActive, 1)).orderBy(desc(users.id));
 }
 
+export async function updateUserPermissions(
+  userId: number,
+  permissions: { treatmentRole: string; trainingRole: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(users)
+    .set({
+      treatmentRole: permissions.treatmentRole,
+      trainingRole: permissions.trainingRole,
+    })
+    .where(eq(users.id, userId));
+}
+
 export async function updateUser(openId: string, name: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
