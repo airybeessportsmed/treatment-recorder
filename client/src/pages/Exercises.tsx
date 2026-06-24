@@ -469,210 +469,199 @@ export default function Exercises() {
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button
-              disabled={selectedPlayerId === "all"}
-              onClick={() => resetForm()}
-              className="rounded-xl font-semibold gap-1.5 shadow-md self-start sm:self-center"
-            >
-              <Plus className="h-4 w-4" />
-              セッションを登録する
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pr-1 custom-scrollbar">
-            <DialogHeader className="border-b pb-2">
-              <DialogTitle className="text-base font-bold flex items-center gap-1.5">
-                {editingSessionId ? "📝 セッションを編集" : "🏋️ 新しいセッションを提供"}
-              </DialogTitle>
-            </DialogHeader>
+        {user?.treatmentRole !== "read" && (
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button
+                disabled={selectedPlayerId === "all"}
+                onClick={() => resetForm()}
+                className="rounded-xl font-semibold gap-1.5 shadow-md self-start sm:self-center"
+              >
+                <Plus className="h-4 w-4" />
+                セッションを登録する
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pr-1 custom-scrollbar">
+              <DialogHeader className="border-b pb-2">
+                <DialogTitle className="text-base font-bold flex items-center gap-1.5">
+                  {editingSessionId ? "📝 セッションを編集" : "🏋️ 新しいセッションを提供"}
+                </DialogTitle>
+              </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">対象選手</label>
-                <div className="text-sm font-semibold bg-accent/20 px-3 py-2 rounded-xl border">
-                  #{getPlayerNumber(Number(selectedPlayerId))} {getPlayerName(Number(selectedPlayerId))}
-                </div>
-              </div>
-
-              {/* Date & Category: Changed grid settings to avoid overlap on small screens */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-accent/5 p-3.5 rounded-2xl border">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground block">提供日</label>
-                  <input
-                    type="date"
-                    value={providedDate}
-                    onChange={(e) => setProvidedDate(e.target.value)}
-                    className="rounded-xl border border-input bg-background px-3 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground block">カテゴリ</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="rounded-xl border border-input bg-background px-3 py-1.5 text-xs focus:ring-2 focus:ring-ring w-full text-foreground"
-                  >
-                    {CATEGORY_OPTIONS.map(opt => (
-                      <option key={opt.key} value={opt.key}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Table Input for Exercises */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground">エクササイズメニュー（表形式入力）</span>
-                  <span className="text-[10px] text-muted-foreground">必要最低限の項目でサクサク登録できます</span>
+              <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">対象選手</label>
+                  <div className="text-sm font-semibold bg-accent/20 px-3 py-2 rounded-xl border">
+                    #{getPlayerNumber(Number(selectedPlayerId))} {getPlayerName(Number(selectedPlayerId))}
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto border rounded-xl max-h-[350px] custom-scrollbar bg-card">
-                  <table className="w-full text-left border-collapse min-w-[500px]">
-                    <thead>
-                      <tr className="bg-muted/30 text-[10px] uppercase font-bold text-muted-foreground border-b">
-                        <th className="p-2.5 w-10 text-center">#</th>
-                        <th className="p-2.5 min-w-[180px]">メニュー名 *</th>
-                        <th className="p-2.5 min-w-[260px]">目的・ポイント</th>
-                        <th className="p-2.5 w-12 text-center"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <AnimatePresence initial={false}>
-                        {exercisesFormList.map((item, idx) => (
-                          <motion.tr
-                            key={idx}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="border-b last:border-0 hover:bg-accent/5 transition-colors"
-                          >
-                            <td className="p-2 text-center text-xs text-muted-foreground font-mono font-bold">
-                              {idx + 1}
-                            </td>
-                            <td className="p-2">
+                {/* Date & Category: Changed grid settings to avoid overlap on small screens */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-accent/5 p-3.5 rounded-2xl border">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground block">提供日</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/60" />
+                      <Input
+                        type="date"
+                        value={providedDate}
+                        onChange={(e) => setProvidedDate(e.target.value)}
+                        className="pl-9 h-9 rounded-xl text-xs bg-background"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground block">カテゴリー</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full h-9 rounded-xl border border-input bg-background px-3 py-2 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      {CATEGORY_OPTIONS.map(opt => (
+                        <option key={opt.key} value={opt.key}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Exercises Input List Table */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">エクササイズ種目</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addExerciseField}
+                      className="h-7 text-[10px] gap-1 px-2 border-dashed border-primary/45 hover:border-primary text-primary hover:bg-primary/5 rounded-lg"
+                    >
+                      <PlusCircle className="h-3 w-3" />
+                      種目を追加
+                    </Button>
+                  </div>
+
+                  <div className="border border-border/80 rounded-xl overflow-hidden shadow-xs bg-background/50">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <th className="p-2 pl-3">種目名（必須）</th>
+                          <th className="p-2">目的・やり方・注意点（任意）</th>
+                          <th className="p-2 w-10 text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-xs">
+                        {exercisesFormList.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-muted/10">
+                            <td className="p-1.5 pl-3">
                               <Input
-                                value={item.title}
+                                placeholder="例: フォームローラー大腿四頭筋"
+                                value={row.title}
                                 onChange={(e) => handleFormChange(idx, "title", e.target.value)}
-                                placeholder="例: クラムシェル"
-                                className="rounded-lg text-xs h-8 bg-background border-input"
-                                required
+                                className="h-8 text-xs bg-background rounded-lg border-muted-foreground/20 focus-visible:border-primary/50"
                               />
                             </td>
-                            <td className="p-2">
+                            <td className="p-1.5">
                               <Input
-                                value={item.points}
+                                placeholder="例: 左右30秒ずつ、ゆっくり転がす"
+                                value={row.points}
                                 onChange={(e) => handleFormChange(idx, "points", e.target.value)}
-                                placeholder="例: 10回3セット、骨盤が倒れないように"
-                                className="rounded-lg text-xs h-8 bg-background border-input"
+                                className="h-8 text-xs bg-background rounded-lg border-muted-foreground/20 focus-visible:border-primary/50"
                               />
                             </td>
-                            <td className="p-2 text-center">
+                            <td className="p-1.5 text-center">
                               {exercisesFormList.length > 1 && (
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => removeExerciseField(idx)}
-                                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                </Button>
                               )}
                             </td>
-                          </motion.tr>
+                          </tr>
                         ))}
-                      </AnimatePresence>
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addExerciseField}
-                  className="w-full h-8.5 gap-1.5 text-xs rounded-xl border-dashed border-2 hover:border-solid hover:bg-accent/5"
-                >
-                  <PlusCircle className="h-4 w-4 text-primary" />
-                  行を追加する
-                </Button>
-              </div>
-
-              {/* Session-wide Media Upload Area */}
-              <div className="space-y-2 border-t pt-3 bg-accent/5 p-3 rounded-2xl border">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-foreground">写真・動画の添付（セッション全体）</label>
-                  <span className="text-[10px] text-muted-foreground">このリハビリ・トリートメント全体に紐づきます</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs rounded-xl relative"
-                    disabled={uploading}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    ファイルを選択
-                    <input
-                      type="file"
-                      accept="image/*,video/*"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
+                {/* Media Attachment Upload Section */}
+                <div className="space-y-2 bg-muted/20 p-3.5 rounded-2xl border border-border/60">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">動画・画像添付（セッション全体に紐付け）</span>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
                       disabled={uploading}
+                      className="h-9 gap-1.5 text-xs border-dashed rounded-xl bg-background shadow-xs shrink-0"
+                      onClick={() => document.getElementById("exercise-file-upload")?.click()}
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      ファイルをアップロード
+                    </Button>
+                    <input
+                      id="exercise-file-upload"
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
                     />
-                  </Button>
-                  {uploading && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                      アップロード中...
+                    <span className="text-[10px] text-muted-foreground leading-relaxed">
+                      動画や画像を何点でも添付可能です。
+                      <br />※アップロード完了後にサムネイルが表示されます。
                     </span>
+                  </div>
+
+                  {/* Attachment Previews */}
+                  {mediaUrls.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {mediaUrls.map((url, mediaIdx) => {
+                        const isVid = isVideo(url);
+                        return (
+                          <div key={mediaIdx} className="relative w-20 h-16 rounded-lg overflow-hidden border bg-black/5 flex items-center justify-center group shadow-xs">
+                            {isVid ? (
+                              <video src={url} className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={url} alt="preview" className="w-full h-full object-cover" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMedia(url)}
+                              className="absolute top-1 right-1 p-0.5 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                              {isVid ? <Video className="h-4 w-4 text-white" /> : <ImageIcon className="h-4 w-4 text-white" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
 
-                {/* Uploaded Previews */}
-                {mediaUrls.length > 0 && (
-                  <div className="grid grid-cols-6 gap-2 pt-1">
-                    {mediaUrls.map((url, idx) => {
-                      const isVid = isVideo(url);
-                      return (
-                        <div key={idx} className="relative aspect-square border rounded-lg overflow-hidden group bg-accent/20">
-                          {isVid ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-black/5">
-                              <Video className="h-4 w-4" />
-                              <span className="text-[6px] mt-0.5 font-bold">動画</span>
-                            </div>
-                          ) : (
-                            <img src={url} alt="preview" className="w-full h-full object-cover" />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMedia(url)}
-                            className="absolute top-0.5 right-0.5 bg-destructive/80 text-destructive-foreground hover:bg-destructive rounded-full p-0.5 shadow transition-all opacity-85 group-hover:opacity-100"
-                          >
-                            <X className="h-2 w-2" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter className="border-t pt-3">
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl text-xs h-8">
-                  キャンセル
-                </Button>
-                <Button type="submit" size="sm" disabled={createExercise.isPending || updateExercise.isPending} className="rounded-xl text-xs h-8 px-5">
-                  {(createExercise.isPending || updateExercise.isPending) && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                  {editingSessionId ? "変更を保存する" : "登録する"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter className="border-t pt-3">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl text-xs h-8">
+                    キャンセル
+                  </Button>
+                  <Button type="submit" size="sm" disabled={createExercise.isPending || updateExercise.isPending} className="rounded-xl text-xs h-8 px-5">
+                    {(createExercise.isPending || updateExercise.isPending) && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                    {editingSessionId ? "変更を保存する" : "登録する"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
@@ -807,12 +796,17 @@ export default function Exercises() {
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Completion Toggle checkbox icon */}
                           <button
-                            onClick={() => toggleComplete.mutate({ sessionId: session.sessionId, isCompleted: !session.isCompleted })}
+                            onClick={() => {
+                              if (user?.treatmentRole === "read") return;
+                              toggleComplete.mutate({ sessionId: session.sessionId, isCompleted: !session.isCompleted });
+                            }}
+                            disabled={user?.treatmentRole === "read"}
                             className={cn(
                               "p-0.5 rounded-full hover:bg-accent/40 transition-colors shrink-0 mr-1",
-                              session.isCompleted ? "text-emerald-500" : "text-muted-foreground/45"
+                              session.isCompleted ? "text-emerald-500" : "text-muted-foreground/45",
+                              user?.treatmentRole === "read" ? "cursor-not-allowed opacity-50" : ""
                             )}
-                            title={session.isCompleted ? "未完了に戻す" : "完了にする"}
+                            title={user?.treatmentRole === "read" ? "完了状態（閲覧のみ）" : (session.isCompleted ? "未完了に戻す" : "完了にする")}
                           >
                             {session.isCompleted ? (
                               <CheckCircle2 className="h-5 w-5 fill-emerald-500/10" />
@@ -856,7 +850,7 @@ export default function Exercises() {
                         </span>
                         
                         {/* 編集・削除ボタンは作成者本人または管理者のみ表示 */}
-                        {(session.createdBy === user?.id || user?.role === "admin") && (
+                        {(session.createdBy === user?.id || user?.role === "admin") && user?.treatmentRole !== "read" && (
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
