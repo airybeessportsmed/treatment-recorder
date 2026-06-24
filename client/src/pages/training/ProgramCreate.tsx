@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Copy, PlusCircle, ChevronRight } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import ProgramForm, { type ProgramFormData, SECTION_CATEGORIES } from "@/components/ProgramForm";
 
@@ -129,12 +130,21 @@ const emptyInitialData = (athleteId: string): ProgramFormData => ({
 });
 
 export default function ProgramCreate() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const search = useSearch();
   const params = new URLSearchParams(search);
   const preAthleteId = params.get("athleteId") ?? "";
   const cloneFromId = params.get("cloneFrom") ? parseInt(params.get("cloneFrom")!) : null;
   const utils = trpc.useUtils();
+
+  if (user?.trainingRole === "read") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>この機能にアクセスする権限がありません。</p>
+      </div>
+    );
+  }
 
   // ステップ: "pick"（複製元選択）| "form"（フォーム編集）
   const [step, setStep] = useState<"pick" | "form">(cloneFromId ? "form" : "pick");
