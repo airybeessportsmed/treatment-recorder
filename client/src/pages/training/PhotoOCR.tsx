@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useSearch } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 type OcrRecord = {
   exerciseName: string;
@@ -27,10 +28,19 @@ type OcrRecord = {
 };
 
 export default function PhotoOCR() {
+  const { user } = useAuth();
   const search = useSearch();
   const params = new URLSearchParams(search);
   const preAthleteId = params.get("athleteId") ?? "";
   const preProgramId = params.get("programId") ?? "";
+
+  if (user?.trainingRole === "read") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>この機能にアクセスする権限がありません。</p>
+      </div>
+    );
+  }
 
   const [selectedAthleteId, setSelectedAthleteId] = useState(preAthleteId);
   const [selectedProgramId, setSelectedProgramId] = useState(preProgramId);
