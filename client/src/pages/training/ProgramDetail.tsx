@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, Pencil, Printer, Camera, Trash2, CheckCircle2, Circle, Copy, Edit2 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { ChangeReasonBadge, ChangeReasonSelector, type ChangeReason } from "@/components/ChangeReasonBadge";
@@ -37,6 +38,7 @@ type EditTarget = {
 };
 
 export default function ProgramDetail() {
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const programId = parseInt(id);
   const [, setLocation] = useLocation();
@@ -170,45 +172,51 @@ export default function ProgramDetail() {
           <h1 className="text-xl font-bold">プログラム詳細</h1>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setLocation(`/training/ocr?programId=${programId}&athleteId=${program.athleteId}`)
-            }
-          >
-            <Camera className="h-4 w-4 mr-1" /> OCR
-          </Button>
+          {user?.trainingRole !== "read" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setLocation(`/training/ocr?programId=${programId}&athleteId=${program.athleteId}`)
+              }
+            >
+              <Camera className="h-4 w-4 mr-1" /> OCR
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-1" /> 印刷
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setLocation(`/training/programs/create?cloneFrom=${programId}&athleteId=${program.athleteId}`)}
-            title="このプログラムを複製して新規作成"
-          >
-            <Copy className="h-4 w-4 mr-1" /> 複製
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setLocation(`/training/programs/${programId}/edit`)}
-          >
-            <Pencil className="h-4 w-4 mr-1" /> 編集
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => {
-              if (confirm("このプログラムを削除しますか？")) {
-                deleteMutation.mutate({ id: programId });
-              }
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {user?.trainingRole !== "read" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation(`/training/programs/create?cloneFrom=${programId}&athleteId=${program.athleteId}`)}
+                title="このプログラムを複製して新規作成"
+              >
+                <Copy className="h-4 w-4 mr-1" /> 複製
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation(`/training/programs/${programId}/edit`)}
+              >
+                <Pencil className="h-4 w-4 mr-1" /> 編集
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (confirm("このプログラムを削除しますか？")) {
+                    deleteMutation.mutate({ id: programId });
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -274,24 +282,29 @@ export default function ProgramDetail() {
                 <>
                   <Circle className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    実績記録なし —
+                    実績記録なし
                   </span>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-sm"
-                    onClick={() =>
-                      setLocation(
-                        `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
-                      )
-                    }
-                  >
-                    写真を撮影して記録を追加
-                  </Button>
+                  {user?.trainingRole !== "read" && (
+                    <>
+                      <span className="text-sm text-muted-foreground">—</span>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-sm"
+                        onClick={() =>
+                          setLocation(
+                            `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
+                          )
+                        }
+                      >
+                        写真を撮影して記録を追加
+                      </Button>
+                    </>
+                  )}
                 </>
               )}
             </div>
-            {hasRecords && (
+            {user?.trainingRole !== "read" && hasRecords && (
               <Button
                 variant="outline"
                 size="sm"
@@ -406,15 +419,17 @@ export default function ProgramDetail() {
                           {ex.attention ?? ""}
                         </td>
                         <td className="py-1.5 text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            title="実績を記録・修正"
-                            onClick={() => openEditDialog(ex, exRecords)}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
+                          {user?.trainingRole !== "read" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                              title="実績を記録・修正"
+                              onClick={() => openEditDialog(ex, exRecords)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );
