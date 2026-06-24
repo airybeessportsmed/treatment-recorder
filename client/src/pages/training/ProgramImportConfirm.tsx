@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,7 +85,16 @@ interface ProgramWithAthlete extends ParsedProgram {
 }
 
 export default function ProgramImportConfirm() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
+
+  if (user?.trainingRole === "read") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>この機能にアクセスする権限がありません。</p>
+      </div>
+    );
+  }
   const [parsedPrograms, setParsedPrograms] = useState<ProgramWithAthlete[]>([]);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
