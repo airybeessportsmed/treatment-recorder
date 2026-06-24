@@ -2,14 +2,24 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useParams } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import ProgramForm, { type ProgramFormData } from "@/components/ProgramForm";
 
 export default function ProgramEdit() {
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const programId = parseInt(id);
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
+
+  if (user?.trainingRole === "read") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>この機能にアクセスする権限がありません。</p>
+      </div>
+    );
+  }
 
   const { data: program, isLoading } = trpc.programs.get.useQuery({ id: programId });
 
