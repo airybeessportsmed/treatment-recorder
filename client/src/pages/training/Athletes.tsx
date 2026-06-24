@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, User, Search } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 type AthleteForm = {
   name: string;
@@ -26,6 +27,7 @@ type AthleteForm = {
 const emptyForm: AthleteForm = { name: "", number: "", position: "", bodyWeight: "", notes: "" };
 
 export default function Athletes() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,9 +109,11 @@ export default function Athletes() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">選手管理</h1>
-        <Button onClick={openCreate} size="sm">
-          <Plus className="h-4 w-4 mr-1" /> 選手を追加
-        </Button>
+        {user?.trainingRole !== "read" && (
+          <Button onClick={openCreate} size="sm">
+            <Plus className="h-4 w-4 mr-1" /> 選手を追加
+          </Button>
+        )}
       </div>
 
       <div className="relative">
@@ -128,9 +132,11 @@ export default function Athletes() {
         <div className="text-center py-12 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p>選手が登録されていません</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
-            最初の選手を登録する
-          </Button>
+          {user?.trainingRole !== "read" && (
+            <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
+              最初の選手を登録する
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -154,28 +160,30 @@ export default function Athletes() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(athlete)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (confirm(`${athlete.name}を削除しますか？`)) {
-                          deleteMutation.mutate({ id: athlete.id });
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  {user?.trainingRole !== "read" && (
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(athlete)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm(`${athlete.name}を削除しますか？`)) {
+                            deleteMutation.mutate({ id: athlete.id });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
