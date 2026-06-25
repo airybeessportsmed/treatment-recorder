@@ -45,6 +45,43 @@
 
 :root {
   /* Elegant teal/slate palette */
+
+  /* HSL Fallbacks for older browsers (e.g. macOS 12 / Safari 15) */
+  --primary: hsl(190, 65%, 32%);
+  --primary-foreground: hsl(190, 20%, 97%);
+  --sidebar-primary: hsl(190, 65%, 32%);
+  --sidebar-primary-foreground: hsl(190, 20%, 97%);
+  --chart-1: hsl(190, 50%, 53%);
+  --chart-2: hsl(190, 58%, 43%);
+  --chart-3: hsl(190, 65%, 32%);
+  --chart-4: hsl(190, 65%, 23%);
+  --chart-5: hsl(190, 48%, 65%);
+  --radius: 0.625rem;
+  --background: hsl(210, 15%, 98.5%);
+  --foreground: hsl(210, 13%, 20%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(210, 13%, 20%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(210, 13%, 20%);
+  --secondary: hsl(190, 20%, 95.5%);
+  --secondary-foreground: hsl(190, 40%, 30%);
+  --muted: hsl(210, 10%, 95.5%);
+  --muted-foreground: hsl(210, 10%, 50%);
+  --accent: hsl(190, 30%, 94%);
+  --accent-foreground: hsl(190, 50%, 20%);
+  --destructive: hsl(360, 75%, 45%);
+  --destructive-foreground: hsl(0, 0%, 98.5%);
+  --border: hsl(210, 10%, 91%);
+  --input: hsl(210, 10%, 91%);
+  --ring: hsl(190, 65%, 32%);
+  --sidebar: hsl(210, 10%, 97.5%);
+  --sidebar-foreground: hsl(210, 13%, 25%);
+  --sidebar-accent: hsl(190, 30%, 94%);
+  --sidebar-accent-foreground: hsl(190, 50%, 18%);
+  --sidebar-border: hsl(210, 10%, 91%);
+  --sidebar-ring: hsl(190, 65%, 32%);
+
+  /* Modern OKLCH variables (overwritten on supporting browsers) */
   --primary: oklch(0.45 0.12 195);
   --primary-foreground: oklch(0.98 0.005 195);
   --sidebar-primary: oklch(0.45 0.12 195);
@@ -81,6 +118,41 @@
 }
 
 .dark {
+  /* HSL Fallbacks for older browsers in dark mode */
+  --primary: hsl(190, 50%, 58%);
+  --primary-foreground: hsl(190, 40%, 15%);
+  --sidebar-primary: hsl(190, 50%, 53%);
+  --sidebar-primary-foreground: hsl(190, 40%, 15%);
+  --background: hsl(210, 15%, 15%);
+  --foreground: hsl(210, 10%, 90%);
+  --card: hsl(210, 15%, 20%);
+  --card-foreground: hsl(210, 10%, 90%);
+  --popover: hsl(210, 15%, 20%);
+  --popover-foreground: hsl(210, 10%, 90%);
+  --secondary: hsl(210, 15%, 25%);
+  --secondary-foreground: hsl(210, 10%, 75%);
+  --muted: hsl(210, 15%, 25%);
+  --muted-foreground: hsl(210, 15%, 65%);
+  --accent: hsl(190, 40%, 25%);
+  --accent-foreground: hsl(190, 30%, 90%);
+  --destructive: hsl(360, 80%, 60%);
+  --destructive-foreground: hsl(0, 0%, 98.5%);
+  --border: hsla(0, 0%, 100%, 0.1);
+  --input: hsla(0, 0%, 100%, 0.15);
+  --ring: hsl(190, 50%, 53%);
+  --chart-1: hsl(190, 50%, 58%);
+  --chart-2: hsl(190, 50%, 53%);
+  --chart-3: hsl(190, 65%, 32%);
+  --chart-4: hsl(190, 48%, 65%);
+  --chart-5: hsl(190, 65%, 23%);
+  --sidebar: hsl(210, 15%, 18%);
+  --sidebar-foreground: hsl(210, 10%, 90%);
+  --sidebar-accent: hsl(190, 40%, 25%);
+  --sidebar-accent-foreground: hsl(190, 30%, 95%);
+  --sidebar-border: hsla(0, 0%, 100%, 0.1);
+  --sidebar-ring: hsl(190, 50%, 53%);
+
+  /* Modern OKLCH variables */
   --primary: oklch(0.65 0.12 195);
   --primary-foreground: oklch(0.15 0.02 195);
   --sidebar-primary: oklch(0.60 0.12 195);
@@ -114,6 +186,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.60 0.12 195);
 }
+
 
 @layer base {
   * {
@@ -165,5 +238,45 @@
       padding-right: 2rem;
       max-width: 1280px;
     }
+  }
+}
+
+/* color-mix がサポートされていない古いブラウザ（macOS 12 / Safari 15など）向けのフォールバック */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  /* 主要な透過クラスに対する安全な上書き定義 */
+  .bg-primary\/5 {
+    background-color: rgba(28, 116, 134, 0.05) !important;
+  }
+  .bg-primary\/10 {
+    background-color: rgba(28, 116, 134, 0.1) !important;
+  }
+  .bg-primary\/15 {
+    background-color: rgba(28, 116, 134, 0.15) !important;
+  }
+  .bg-primary\/20 {
+    background-color: rgba(28, 116, 134, 0.2) !important;
+  }
+  
+  .bg-destructive\/5 {
+    background-color: rgba(220, 38, 38, 0.05) !important;
+  }
+  .bg-destructive\/10 {
+    background-color: rgba(220, 38, 38, 0.1) !important;
+  }
+  .bg-destructive\/20 {
+    background-color: rgba(220, 38, 38, 0.2) !important;
+  }
+
+  .bg-secondary\/10 {
+    background-color: rgba(238, 244, 246, 0.1) !important;
+  }
+  .bg-muted\/10 {
+    background-color: rgba(242, 244, 245, 0.1) !important;
+  }
+  .bg-accent\/10 {
+    background-color: rgba(232, 241, 244, 0.1) !important;
+  }
+  .bg-accent\/20 {
+    background-color: rgba(232, 241, 244, 0.2) !important;
   }
 }
