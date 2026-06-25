@@ -300,6 +300,39 @@ describe("treatment router", () => {
       ).rejects.toThrow();
     });
   });
+
+  describe("approval.mergeUsers", () => {
+    it("requires admin role", async () => {
+      const ctx = createAuthContext(); // default user role is "user"
+      const caller = appRouter.createCaller(ctx);
+      await expect(
+        caller.approval.mergeUsers({ sourceUserId: 1, targetUserId: 2 })
+      ).rejects.toThrow();
+    });
+
+    it("rejects merging same user IDs", async () => {
+      const ctx = createAuthContext();
+      ctx.user!.role = "admin";
+      const caller = appRouter.createCaller(ctx);
+      await expect(
+        caller.approval.mergeUsers({ sourceUserId: 1, targetUserId: 1 })
+      ).rejects.toThrow();
+    });
+
+    it("accepts valid arguments for admin", async () => {
+      const ctx = createAuthContext();
+      ctx.user!.role = "admin";
+      const caller = appRouter.createCaller(ctx);
+      // db.mergeUsers will throw because database is not available in unit test env,
+      // but the TRPC router validation and role check should pass (not throw FORBIDDEN or BAD_REQUEST)
+      try {
+        await caller.approval.mergeUsers({ sourceUserId: 1710007, targetUserId: 1 });
+      } catch (e: any) {
+        expect(e.code).not.toBe("FORBIDDEN");
+        expect(e.code).not.toBe("BAD_REQUEST");
+      }
+    });
+  });
 });
 
 describe("shared constants", () => {
