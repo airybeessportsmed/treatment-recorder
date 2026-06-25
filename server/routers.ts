@@ -832,6 +832,23 @@ const approvalRouter = router({
       });
       return { success: true };
     }),
+
+  mergeUsers: protectedProcedure
+    .input(z.object({
+      sourceUserId: z.number(),
+      targetUserId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      if (input.sourceUserId === input.targetUserId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "同一のユーザーを統合することはできません"
+        });
+      }
+      await db.mergeUsers(input.sourceUserId, input.targetUserId);
+      return { success: true };
+    }),
 });
 
 export const appRouter = router({
