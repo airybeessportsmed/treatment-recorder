@@ -436,3 +436,30 @@ export async function toggleExerciseSessionComplete(sessionId: string, isComplet
   return { success: true };
 }
 
+export async function mergeUsers(sourceUserId: number, targetUserId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.transaction(async (tx) => {
+    // 1. treatments の createdBy を更新
+    await tx.update(treatments)
+      .set({ createdBy: targetUserId })
+      .where(eq(treatments.createdBy, sourceUserId));
+
+    // 2. exercises の createdBy を更新
+    await tx.update(exercises)
+      .set({ createdBy: targetUserId })
+      .where(eq(exercises.createdBy, sourceUserId));
+
+    // 3. players の createdBy を更新
+    await tx.update(players)
+      .set({ createdBy: targetUserId })
+      .where(eq(players.createdBy, sourceUserId));
+
+    // 4. 移行元ユーザーを非アクティブにする
+    await tx.update(users)
+      .set({ isActive: 0 })
+      .where(eq(users.id, sourceUserId));
+  });
+}
+
