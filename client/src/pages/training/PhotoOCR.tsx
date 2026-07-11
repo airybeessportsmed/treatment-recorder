@@ -235,27 +235,24 @@ export default function PhotoOCR() {
       });
 
       if (matchedExercises.length > 0) {
+        const matchedEx = matchedExercises[0];
         const activeSetResults = editRec.setResults.map((l: string) => l.trim()).filter(Boolean);
 
         if (activeSetResults.length > 0) {
-          activeSetResults.forEach((load: string, idx: number) => {
-            const matchedEx = matchedExercises[idx] || matchedExercises[matchedExercises.length - 1];
-            recordsToInsert.push({
-              programId: parseInt(selectedProgramId),
-              exerciseId: matchedEx.id,
-              athleteId: parseInt(selectedAthleteId),
-              date,
-              actualSets: 1,
-              actualReps: editRec.plannedReps ?? undefined,
-              actualLoad: load,
-              notes: idx === 0 ? (editRec.notes ?? undefined) : undefined,
-              source: "ocr" as const,
-              changeReason: editRec.changeReason ? editRec.changeReason : null,
-              changeNote: editRec.changeNote ? editRec.changeNote : null,
-            });
+          recordsToInsert.push({
+            programId: parseInt(selectedProgramId),
+            exerciseId: matchedEx.id,
+            athleteId: parseInt(selectedAthleteId),
+            date,
+            actualSets: activeSetResults.length,
+            actualReps: editRec.plannedReps ?? undefined,
+            actualLoad: activeSetResults.join(" / "),
+            notes: editRec.notes ?? undefined,
+            source: "ocr" as const,
+            changeReason: editRec.changeReason ? editRec.changeReason : null,
+            changeNote: editRec.changeNote ? editRec.changeNote : null,
           });
         } else {
-          const matchedEx = matchedExercises[0];
           recordsToInsert.push({
             programId: parseInt(selectedProgramId),
             exerciseId: matchedEx.id,

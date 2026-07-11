@@ -475,6 +475,12 @@ export async function upsertRecord(data: InsertRecord) {
   }
 }
 
+export async function deleteRecord(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(records).where(eq(records.id, id));
+}
+
 export async function bulkInsertRecords(dataList: InsertRecord[]) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");

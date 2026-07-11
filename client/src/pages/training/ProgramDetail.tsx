@@ -55,6 +55,10 @@ export default function ProgramDetail() {
   const [editChangeReason, setEditChangeReason] = useState<ChangeReason | null>(null);
   const [editChangeNote, setEditChangeNote] = useState("");
 
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkInputs, setBulkInputs] = useState<Record<number, { load: string; reps: string; sets: string; notes: string }>>({});
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+
   const deleteMutation = trpc.programs.delete.useMutation({
     onSuccess: () => {
       toast.success("プログラムを削除しました");
@@ -83,6 +87,15 @@ export default function ProgramDetail() {
       utils.records.listByProgram.invalidate({ programId });
     },
     onError: (e) => toast.error("実績のクリアに失敗しました: " + e.message),
+  });
+
+  const deleteRecordMutation = trpc.records.delete.useMutation({
+    onSuccess: () => {
+      toast.success("実績記録をクリアしました");
+      utils.records.listByProgram.invalidate({ programId });
+      setEditTarget(null);
+    },
+    onError: () => toast.error("クリアに失敗しました"),
   });
 
   const handleClearRecords = () => {
@@ -143,8 +156,64 @@ export default function ProgramDetail() {
       notes: editNotes || undefined,
       source: "manual",
       changeReason: editChangeReason ?? undefined,
-      changeNote: editChangeNote || undefined,
     });
+  };
+
+  const openBulkDialog = () => {
+    if (!program) return;
+    const inputs: typeof bulkInputs = {};
+    program.sections.forEach(sec => {
+      sec.exercises.forEach(ex => {
+        const rec = recordsByExerciseId.get(String(ex.id))?.[0];
+        inputs[ex.id] = {
+          load: rec?.actualLoad ?? "",
+          reps: rec?.actualReps ?? "",
+          sets: rec?.actualSets != null ? String(rec.actualSets) : "",
+          notes: rec?.notes ?? "",
+        };
+      });
+    });
+    setBulkInputs(inputs);
+    setBulkDialogOpen(true);
+  };
+
+  const handleSaveBulk = async () => {
+    if (!program) return;
+    setIsBulkSaving(true);
+    try {
+      const promises = Object.entries(bulkInputs).map(async ([exIdStr, input]) => {
+        const exId = parseInt(exIdStr);
+        const hasData = input.load || input.reps || input.sets || input.notes;
+        const existingRec = recordsByExerciseId.get(String(exId))?.[0];
+
+        if (!hasData) {
+          if (existingRec) {
+            await deleteRecordMutation.mutateAsync({ id: existingRec.id });
+          }
+          return;
+        }
+
+        await upsertMutation.mutateAsync({
+          programId,
+          exerciseId: exId,
+          athleteId: program.athleteId,
+          date: program.date,
+          actualLoad: input.load || undefined,
+          actualSets: input.sets ? parseInt(input.sets) : undefined,
+          actualReps: input.reps || undefined,
+          notes: input.notes || undefined,
+          source: "manual",
+        });
+      });
+      await Promise.all(promises);
+      toast.success("実績を一括保存しました");
+      utils.records.listByProgram.invalidate({ programId });
+      setBulkDialogOpen(false);
+    } catch (err) {
+      toast.error("一部の実績保存に失敗しました");
+    } finally {
+      setIsBulkSaving(false);
+    }
   };
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">読み込み中...</div>;
@@ -173,15 +242,25 @@ export default function ProgramDetail() {
         </div>
         <div className="flex gap-2">
           {user?.trainingRole !== "read" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setLocation(`/training/ocr?programId=${programId}&athleteId=${program.athleteId}`)
-              }
-            >
-              <Camera className="h-4 w-4 mr-1" /> OCR
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openBulkDialog}
+                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+              >
+                <Edit2 className="h-4 w-4 mr-1" /> 実績を一括入力
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setLocation(`/training/ocr?programId=${programId}&athleteId=${program.athleteId}`)
+                }
+              >
+                <Camera className="h-4 w-4 mr-1" /> OCR
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-1" /> 印刷
@@ -287,18 +366,29 @@ export default function ProgramDetail() {
                   {user?.trainingRole !== "read" && (
                     <>
                       <span className="text-sm text-muted-foreground">—</span>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-sm"
-                        onClick={() =>
-                          setLocation(
-                            `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
-                          )
-                        }
-                      >
-                        写真を撮影して記録を追加
-                      </Button>
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-sm font-medium text-green-700 hover:text-green-800"
+                          onClick={openBulkDialog}
+                        >
+                          実績を手動で一括入力
+                        </Button>
+                        <span className="text-muted-foreground text-xs">または</span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-sm font-medium"
+                          onClick={() =>
+                            setLocation(
+                              `/training/ocr?programId=${programId}&athleteId=${program.athleteId}`
+                            )
+                          }
+                        >
+                          写真を撮影して記録を追加
+                        </Button>
+                      </div>
                     </>
                   )}
                 </>
@@ -364,7 +454,7 @@ export default function ProgramDetail() {
                   {section.exercises.map(ex => {
                     const exRecords = recordsByExerciseId.get(String(ex.id)) ?? [];
                     const actualLoads = exRecords
-                      .map(r => r.actualLoad)
+                      .flatMap(r => r.actualLoad ? r.actualLoad.split(/\s*\/\s*/) : [])
                       .filter(Boolean) as string[];
                     const hasActual = actualLoads.length > 0;
                     const firstRec = exRecords[0];
@@ -524,17 +614,157 @@ export default function ProgramDetail() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditTarget(null)}>
-              キャンセル
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveEdit}
-              disabled={upsertMutation.isPending}
-            >
-              {upsertMutation.isPending ? "保存中..." : "保存"}
-            </Button>
+          <DialogFooter className="flex justify-between items-center sm:justify-between">
+            {editTarget && recordsByExerciseId.get(String(editTarget.exerciseId))?.[0] ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+                onClick={() => {
+                  const rec = recordsByExerciseId.get(String(editTarget.exerciseId))?.[0];
+                  if (rec && confirm("この種目の実績データをクリアしますか？")) {
+                    deleteRecordMutation.mutate({ id: rec.id });
+                  }
+                }}
+                disabled={deleteRecordMutation.isPending}
+              >
+                実績をクリア
+              </Button>
+            ) : <div />}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditTarget(null)}>
+                キャンセル
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveEdit}
+                disabled={upsertMutation.isPending}
+              >
+                {upsertMutation.isPending ? "保存中..." : "保存"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 実績一括入力ダイアログ */}
+      <Dialog open={bulkDialogOpen} onOpenChange={open => !open && setBulkDialogOpen(false)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-4">
+          <DialogHeader className="pb-2 border-b">
+            <DialogTitle className="text-base flex justify-between items-center pr-6">
+              <span>実績を一括入力・編集</span>
+              {program.athlete && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  #{program.athlete.number} {program.athlete.name} · {program.date}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-2 pr-1 space-y-4">
+            {sortedSections.map(section => (
+              <div key={section.id} className="space-y-2">
+                <h3 className="font-semibold text-sm text-primary flex items-center gap-2">
+                  <Badge variant="outline" className={`${SECTION_COLORS[section.category] ?? "bg-gray-50 text-gray-700"} font-semibold`}>
+                    {section.category}
+                  </Badge>
+                </h3>
+                <div className="border rounded-lg overflow-hidden bg-muted/10">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/40 font-medium text-muted-foreground">
+                        <th className="text-left py-2 px-3">種目</th>
+                        <th className="text-center py-2 px-1 w-12">SET</th>
+                        <th className="text-center py-2 px-1 w-16">計画負荷</th>
+                        <th className="text-center py-2 px-1 w-16 bg-green-50/50 text-green-800">実績SET</th>
+                        <th className="text-center py-2 px-1 w-20 bg-green-50/50 text-green-800">実績回数</th>
+                        <th className="text-center py-2 px-1 w-32 bg-green-50/50 text-green-800 font-bold">実績負荷</th>
+                        <th className="text-left py-2 px-2">全体メモ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {section.exercises.map(ex => {
+                        const input = bulkInputs[ex.id] || { sets: "", reps: "", load: "", notes: "" };
+                        return (
+                          <tr key={ex.id} className="border-b last:border-0 hover:bg-muted/30">
+                            <td className="py-2 px-3 font-medium">
+                              <div>{ex.name}</div>
+                              {ex.attention && <div className="text-[10px] text-muted-foreground font-normal">{ex.attention}</div>}
+                            </td>
+                            <td className="text-center py-2 px-1 text-muted-foreground">{ex.sets ?? "-"}</td>
+                            <td className="text-center py-2 px-1 text-muted-foreground">{ex.load ?? "-"}</td>
+                            <td className="py-1 px-1 bg-green-50/20">
+                              <Input
+                                type="number"
+                                placeholder={ex.sets ? String(ex.sets) : "3"}
+                                value={input.sets}
+                                onChange={e => setBulkInputs(prev => ({
+                                  ...prev,
+                                  [ex.id]: { ...prev[ex.id], sets: e.target.value }
+                                }))}
+                                className="h-7 text-xs text-center p-0.5"
+                              />
+                            </td>
+                            <td className="py-1 px-1 bg-green-50/20">
+                              <Input
+                                placeholder={ex.reps ?? "8回"}
+                                value={input.reps}
+                                onChange={e => setBulkInputs(prev => ({
+                                  ...prev,
+                                  [ex.id]: { ...prev[ex.id], reps: e.target.value }
+                                }))}
+                                className="h-7 text-xs text-center p-1"
+                              />
+                            </td>
+                            <td className="py-1 px-1 bg-green-50/20">
+                              <Input
+                                placeholder={ex.load ?? "60kg"}
+                                value={input.load}
+                                onChange={e => setBulkInputs(prev => ({
+                                  ...prev,
+                                  [ex.id]: { ...prev[ex.id], load: e.target.value }
+                                }))}
+                                className="h-7 text-xs text-center font-bold text-green-700 p-1"
+                              />
+                            </td>
+                            <td className="py-1 px-2">
+                              <Input
+                                placeholder="メモ"
+                                value={input.notes}
+                                onChange={e => setBulkInputs(prev => ({
+                                  ...prev,
+                                  [ex.id]: { ...prev[ex.id], notes: e.target.value }
+                                }))}
+                                className="h-7 text-xs p-1"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="pt-2 border-t mt-2 flex justify-between items-center sm:justify-between">
+            <div className="text-xs text-muted-foreground hidden sm:block">
+              ※実績負荷は「60 / 62.5 / 65」のように「 / 」区切りでセット別の入力も可能です。
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setBulkDialogOpen(false)}>
+                キャンセル
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveBulk}
+                disabled={isBulkSaving}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold"
+              >
+                {isBulkSaving ? "保存中..." : "一括保存"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

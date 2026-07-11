@@ -408,6 +408,14 @@ const recordsRouter = router({
       await db_training.deleteRecordsByProgramId(input.programId);
       return { success: true };
     }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      checkTrainingWrite(ctx.user);
+      await db_training.deleteRecord(input.id);
+      return { success: true };
+    }),
 });
 
 const photosRouter = router({
