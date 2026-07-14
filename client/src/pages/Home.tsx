@@ -508,15 +508,14 @@ export default function Home() {
             }
           });
 
-          if (injuryDetails.length > 0) {
-            parsedRows.push({
-              date: dateStr,
-              playerName,
-              searchKey: String(row[0] || ""),
-              severityScore: maxSeverityScore,
-              injuryDetails,
-            });
-          }
+          // 痛みがない（全部位0点）場合でも、緑の通常カードとして表示するため必ず登録する
+          parsedRows.push({
+            date: dateStr,
+            playerName,
+            searchKey: String(row[0] || ""),
+            severityScore: maxSeverityScore,
+            injuryDetails,
+          });
         }
 
         if (parsedRows.length === 0) {
@@ -1623,8 +1622,8 @@ export default function Home() {
                             })}
                           </div>
                         ) : (
-                          <div className="pt-2 text-center text-[10px] text-muted-foreground italic">
-                            部位データの記載なし
+                          <div className="py-2 text-center text-xs font-bold text-green-600 dark:text-green-400 bg-green-500/10 rounded-xl border border-green-500/20">
+                            痛みや違和感のある部位はありません（良好）
                           </div>
                         )}
                       </CardContent>
