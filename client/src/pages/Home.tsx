@@ -407,6 +407,42 @@ export default function Home() {
           );
         }
 
+        // === 🚨 詳細なデバッグトーストの追加 ===
+        if (rawRows.length > headerRowIndex + 1) {
+          const firstDataRow = rawRows[headerRowIndex + 1];
+          const rawDate = firstDataRow[dateIdx] || firstDataRow[timestampIdx];
+          const playerName = String(firstDataRow[playerIdx] || "").trim();
+          
+          let dateStr = "";
+          try {
+            if (typeof rawDate === "number") {
+              const dateObj = XLSX.SSF.parse_date_code(rawDate);
+              dateStr = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+            } else {
+              const d = new Date(String(rawDate));
+              if (!isNaN(d.getTime())) {
+                dateStr = d.toISOString().split("T")[0];
+              }
+            }
+          } catch (err: any) {
+            dateStr = `Error: ${err.message}`;
+          }
+
+          const g1 = partIndexGroups[0] || { partIdx: 4, scoreIdx: 5, statusIdx: 6 };
+          const p1Val = firstDataRow[g1.partIdx];
+          const s1Val = firstDataRow[g1.scoreIdx];
+          const st1Val = firstDataRow[g1.statusIdx];
+
+          toast.info(`【デバッグ】1行目パース結果:
+            日付: ${rawDate} (➔ ${dateStr}),
+            選手: "${playerName}",
+            部位1: "${p1Val}",
+            スコア1: ${s1Val} (型: ${typeof s1Val}),
+            Status1: "${st1Val}",
+            グループ数: ${partIndexGroups.length}
+          `, { duration: 15000 });
+        }
+
         const parsedRows: any[] = [];
 
         for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
