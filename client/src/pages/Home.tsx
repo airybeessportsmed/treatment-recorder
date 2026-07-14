@@ -330,7 +330,14 @@ export default function Home() {
       const data = new Uint8Array(event.target?.result as ArrayBuffer);
       try {
         const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
+        // 「シート2」「Sheet 2」「Sheet2」などの名前が含まれるシートを優先的に探す
+        let sheetName = workbook.SheetNames.find(name => 
+          name.includes("シート2") || name.toLowerCase().includes("sheet2") || name.includes("抽出")
+        );
+        // 見つからない場合は最初のシートを使用
+        if (!sheetName) {
+          sheetName = workbook.SheetNames[0];
+        }
         const worksheet = workbook.Sheets[sheetName];
         
         const rawRows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
