@@ -330,16 +330,19 @@ export default function Home() {
       const data = new Uint8Array(event.target?.result as ArrayBuffer);
       try {
         const workbook = XLSX.read(data, { type: "array" });
+        toast.info(`【デバッグ】検出されたシート: ${workbook.SheetNames.join(", ")}`);
         
         let targetSheetName = "";
         for (const name of workbook.SheetNames) {
           const sheet = workbook.Sheets[name];
           const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
           if (rows.length > 0) {
-            const firstRow = rows[0] || [];
-            const hasStatus = firstRow.some(cell => /status/i.test(String(cell)));
-            const hasTotal = firstRow.some(cell => /合計/i.test(String(cell)));
-            const hasResponder = firstRow.some(cell => /回答者|名前/i.test(String(cell)));
+            const firstValidRow = rows.find(r => r && r.length > 0) || [];
+            toast.info(`【デバッグ】シート "${name}" 最初行: ${firstValidRow.slice(0, 4).join(", ")}...`);
+            
+            const hasStatus = firstValidRow.some(cell => /status/i.test(String(cell)));
+            const hasTotal = firstValidRow.some(cell => /合計/i.test(String(cell)));
+            const hasResponder = firstValidRow.some(cell => /回答者|名前/i.test(String(cell)));
             
             if (hasStatus && hasTotal && hasResponder) {
               targetSheetName = name;
@@ -354,6 +357,8 @@ export default function Home() {
           );
           targetSheetName = nameMatch || workbook.SheetNames[0];
         }
+
+        toast.info(`【デバッグ】読み込みシート決定: "${targetSheetName}"`);
 
         const worksheet = workbook.Sheets[targetSheetName];
         const rawRows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
@@ -373,6 +378,7 @@ export default function Home() {
         if (headerRowIndex === -1) headerRowIndex = 0;
 
         const headerRow = rawRows[headerRowIndex] || [];
+        toast.info(`【デバッグ】ヘッダー判定行: ${headerRow.slice(0, 4).join(", ")}...`);
 
         let dateIdx = headerRow.findIndex(cell => /日付|date/i.test(String(cell)));
         let timestampIdx = headerRow.findIndex(cell => /タイムスタンプ|timestamp/i.test(String(cell)));
