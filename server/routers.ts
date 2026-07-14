@@ -916,6 +916,10 @@ const ostrcRouter = router({
           severity: z.enum(["out", "normal", "caution", "limited"]),
           score: z.number(),
           note: z.string().optional(),
+          q1: z.number().optional(),
+          q2: z.number().optional(),
+          q3: z.number().optional(),
+          q4: z.number().optional(),
         })),
       })),
     }))

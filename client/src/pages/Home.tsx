@@ -332,30 +332,12 @@ export default function Home() {
         const workbook = XLSX.read(data, { type: "array" });
         toast.info(`【デバッグ】検出されたシート: ${workbook.SheetNames.join(", ")}`);
         
-        let targetSheetName = "";
-        for (const name of workbook.SheetNames) {
-          const sheet = workbook.Sheets[name];
-          const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
-          if (rows.length > 0) {
-            const firstValidRow = rows.find(r => r && r.length > 0) || [];
-            toast.info(`【デバッグ】シート "${name}" 最初行: ${firstValidRow.slice(0, 4).join(", ")}...`);
-            
-            const hasStatus = firstValidRow.some(cell => /status/i.test(String(cell)));
-            const hasTotal = firstValidRow.some(cell => /合計/i.test(String(cell)));
-            const hasResponder = firstValidRow.some(cell => /回答者|名前/i.test(String(cell)));
-            
-            if (hasStatus && hasTotal && hasResponder) {
-              targetSheetName = name;
-              break;
-            }
-          }
-        }
-
+        // シート1（フォーム回答RAWデータシート）を優先的に特定
+        let targetSheetName = workbook.SheetNames.find(name => 
+          name.includes("シート1") || name.toLowerCase().includes("sheet1") || name.includes("フォーム")
+        );
         if (!targetSheetName) {
-          const nameMatch = workbook.SheetNames.find(name => 
-            name.includes("シート2") || name.toLowerCase().includes("sheet2") || name.includes("抽出")
-          );
-          targetSheetName = nameMatch || workbook.SheetNames[0];
+          targetSheetName = workbook.SheetNames[0];
         }
 
         toast.info(`【デバッグ】読み込みシート決定: "${targetSheetName}"`);
@@ -367,50 +349,24 @@ export default function Home() {
           return;
         }
 
-        let headerRowIndex = -1;
-        for (let i = 0; i < rawRows.length; i++) {
-          const r = rawRows[i];
-          if (r && r.length > 3 && r.some(cell => /回答者|名前|Status/i.test(String(cell)))) {
-            headerRowIndex = i;
-            break;
-          }
-        }
-        if (headerRowIndex === -1) headerRowIndex = 0;
+        // シート1の固定列マッピング
+        // 0 (A列): タイムスタンプ
+        // 1 (B列): 回答者
+        // 59〜86 (BH〜CI): 部位1〜4、Q1〜Q4スコア、合計、Status
+        const dateIdx = 0;
+        const playerIdx = 1;
 
-        const headerRow = rawRows[headerRowIndex] || [];
-        toast.info(`【デバッグ】ヘッダー判定行: ${headerRow.slice(0, 4).join(", ")}...`);
-
-        let dateIdx = headerRow.findIndex(cell => /日付|date/i.test(String(cell)));
-        let timestampIdx = headerRow.findIndex(cell => /タイムスタンプ|timestamp/i.test(String(cell)));
-        let playerIdx = headerRow.findIndex(cell => /回答者|名前|選手|player/i.test(String(cell)));
-
-        if (dateIdx === -1) dateIdx = 1;
-        if (timestampIdx === -1) timestampIdx = 2;
-        if (playerIdx === -1) playerIdx = 3;
-
-        const partIndexGroups: { partIdx: number, scoreIdx: number, statusIdx: number }[] = [];
-        for (let idx = 0; idx < headerRow.length; idx++) {
-          const cellStr = String(headerRow[idx]);
-          if (cellStr.includes("部位")) {
-            const scoreIdx = idx + 1;
-            const statusIdx = idx + 2;
-            partIndexGroups.push({ partIdx: idx, scoreIdx, statusIdx });
-          }
-        }
-
-        if (partIndexGroups.length === 0) {
-          partIndexGroups.push(
-            { partIdx: 4, scoreIdx: 5, statusIdx: 6 },
-            { partIdx: 7, scoreIdx: 8, statusIdx: 9 },
-            { partIdx: 10, scoreIdx: 11, statusIdx: 12 },
-            { partIdx: 13, scoreIdx: 14, statusIdx: 15 }
-          );
-        }
+        const partIndexGroups = [
+          { partIdx: 59, q1Idx: 60, q2Idx: 61, q3Idx: 62, q4Idx: 63, scoreIdx: 64, statusIdx: 65 },
+          { partIdx: 66, q1Idx: 67, q2Idx: 68, q3Idx: 69, q4Idx: 70, scoreIdx: 71, statusIdx: 72 },
+          { partIdx: 73, q1Idx: 74, q2Idx: 75, q3Idx: 76, q4Idx: 77, scoreIdx: 78, statusIdx: 79 },
+          { partIdx: 80, q1Idx: 81, q2Idx: 82, q3Idx: 83, q4Idx: 84, scoreIdx: 85, statusIdx: 86 },
+        ];
 
         // === 🚨 詳細なデバッグトーストの追加 ===
-        if (rawRows.length > headerRowIndex + 1) {
-          const firstDataRow = rawRows[headerRowIndex + 1];
-          const rawDate = firstDataRow[dateIdx] || firstDataRow[timestampIdx];
+        if (rawRows.length > 1) {
+          const firstDataRow = rawRows[1];
+          const rawDate = firstDataRow[dateIdx];
           const playerName = String(firstDataRow[playerIdx] || "").trim();
           
           let dateStr = "";
@@ -419,19 +375,24 @@ export default function Home() {
               const dateObj = XLSX.SSF.parse_date_code(rawDate);
               dateStr = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
             } else {
-              const d = new Date(String(rawDate));
-              if (!isNaN(d.getTime())) {
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                dateStr = `${year}-${month}-${day}`;
+              const dateMatch = String(rawDate).match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+              if (dateMatch) {
+                dateStr = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+              } else {
+                const d = new Date(String(rawDate));
+                if (!isNaN(d.getTime())) {
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  dateStr = `${year}-${month}-${day}`;
+                }
               }
             }
           } catch (err: any) {
             dateStr = `Error: ${err.message}`;
           }
 
-          const g1 = partIndexGroups[0] || { partIdx: 4, scoreIdx: 5, statusIdx: 6 };
+          const g1 = partIndexGroups[0];
           const p1Val = firstDataRow[g1.partIdx];
           const s1Val = firstDataRow[g1.scoreIdx];
           const st1Val = firstDataRow[g1.statusIdx];
@@ -448,11 +409,12 @@ export default function Home() {
 
         const parsedRows: any[] = [];
 
-        for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
+        // データ行のパース
+        for (let i = 1; i < rawRows.length; i++) {
           const row = rawRows[i];
-          if (!row || row.length <= Math.max(dateIdx, timestampIdx, playerIdx)) continue;
+          if (!row || row.length <= playerIdx) continue;
 
-          const rawDate = row[dateIdx] || row[timestampIdx];
+          const rawDate = row[dateIdx];
           if (!rawDate) continue;
 
           let dateStr = "";
@@ -461,12 +423,17 @@ export default function Home() {
               const dateObj = XLSX.SSF.parse_date_code(rawDate);
               dateStr = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
             } else {
-              const d = new Date(String(rawDate));
-              if (!isNaN(d.getTime())) {
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                dateStr = `${year}-${month}-${day}`;
+              const dateMatch = String(rawDate).match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+              if (dateMatch) {
+                dateStr = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+              } else {
+                const d = new Date(String(rawDate));
+                if (!isNaN(d.getTime())) {
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  dateStr = `${year}-${month}-${day}`;
+                }
               }
             }
           } catch (err) {}
@@ -504,6 +471,11 @@ export default function Home() {
             const rawScore = Number(row[group.scoreIdx]);
             const rawStatus = String(row[group.statusIdx] || "").trim();
 
+            const q1Val = Number(row[group.q1Idx] || 0);
+            const q2Val = Number(row[group.q2Idx] || 0);
+            const q3Val = Number(row[group.q3Idx] || 0);
+            const q4Val = Number(row[group.q4Idx] || 0);
+
             if (rawPart && !isNaN(rawScore) && rawScore > 0) {
               if (rawScore > maxSeverityScore) {
                 maxSeverityScore = rawScore;
@@ -528,6 +500,10 @@ export default function Home() {
                 severity: severity,
                 score: rawScore,
                 note: rawStatus || undefined,
+                q1: q1Val,
+                q2: q2Val,
+                q3: q3Val,
+                q4: q4Val,
               });
             }
           });
