@@ -474,10 +474,42 @@ export async function upsertOstrcResponse(data: InsertOstrcResponse) {
     .limit(1);
 
   if (existing[0]) {
+    let mergedDetails: any[] = [];
+    try {
+      const existingDetails = typeof existing[0].injuryDetails === "string" 
+        ? JSON.parse(existing[0].injuryDetails) 
+        : (existing[0].injuryDetails || []);
+      const newDetails = typeof data.injuryDetails === "string"
+        ? JSON.parse(data.injuryDetails as string)
+        : (data.injuryDetails || []);
+
+      const detailsMap = new Map<string, any>();
+      existingDetails.forEach((d: any) => {
+        if (d && d.partLabel) {
+          detailsMap.set(d.partLabel.trim(), d);
+        }
+      });
+      newDetails.forEach((d: any) => {
+        if (d && d.partLabel) {
+          detailsMap.set(d.partLabel.trim(), d);
+        }
+      });
+      mergedDetails = Array.from(detailsMap.values());
+    } catch (e) {
+      mergedDetails = data.injuryDetails as any[];
+    }
+
+    const maxScore = mergedDetails.reduce((max, d) => Math.max(max, d.score || 0), 0);
+
     await db
       .update(ostrcResponses)
-      .set(data)
+      .set({
+        ...data,
+        severityScore: Math.max(existing[0].severityScore, data.severityScore, maxScore),
+        injuryDetails: mergedDetails,
+      })
       .where(eq(ostrcResponses.id, existing[0].id));
+    
     return existing[0].id;
   } else {
     const result = await db.insert(ostrcResponses).values(data);

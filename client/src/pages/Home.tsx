@@ -1572,9 +1572,17 @@ export default function Home() {
             {ostrcAlerts && ostrcAlerts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {ostrcAlerts.map(alert => {
+                  const details = alert.injuryDetails || [];
+                  // 部位リストをスコア（合計得点）の降順で並べ替え
+                  const sortedDetails = [...details].sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
+                  
+                  // 最も高い合計得点（最高得点）を取得
+                  const maxDetailScore = sortedDetails.reduce((max: number, d: any) => Math.max(max, d.score || 0), 0);
+                  
                   const hasSubstantial = alert.q1Participation >= 17 || alert.q2Volume >= 13 || alert.q3Performance >= 13;
-                  const isRed = alert.severityScore >= 40 || hasSubstantial;
-                  const isYellow = alert.severityScore >= 11 && !isRed;
+                  // 最高得点を基準にカードの色を決定
+                  const isRed = maxDetailScore >= 40 || hasSubstantial;
+                  const isYellow = maxDetailScore >= 11 && !isRed;
                   
                   const severityBg = isRed ? "border-red-200 bg-red-500/5 dark:bg-red-500/10 text-red-900 dark:text-red-100" 
                     : isYellow ? "border-amber-200 bg-amber-500/5 dark:bg-amber-500/10 text-amber-900 dark:text-amber-100" 
@@ -1584,8 +1592,6 @@ export default function Home() {
                     : isYellow ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
                     : "bg-green-500/10 text-green-600 border-green-500/20";
 
-                  const details = alert.injuryDetails || [];
-
                   return (
                     <Card key={alert.id} className={cn("border shadow-xs overflow-hidden transition-all", severityBg)}>
                       <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
@@ -1594,7 +1600,7 @@ export default function Home() {
                             #{alert.playerNumber} {alert.playerName}
                           </span>
                           <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border font-semibold", scoreBadgeColor)}>
-                            {alert.severityScore}点
+                            最高 {maxDetailScore}点
                           </Badge>
                         </div>
                         <span className="text-[10px] text-muted-foreground font-mono font-medium">
@@ -1602,41 +1608,34 @@ export default function Home() {
                         </span>
                       </CardHeader>
                       <CardContent className="p-4 pt-1 space-y-2">
-                        <div className="text-[10px] text-muted-foreground flex justify-between items-center font-medium">
-                          <span>Q1:{alert.q1Participation} | Q2:{alert.q2Volume} | Q3:{alert.q3Performance} | Q4:{alert.q4Symptoms}</span>
-                          {hasSubstantial && (
-                            <Badge className="bg-red-600 text-white border-0 text-[8px] font-extrabold px-1.5 py-0">
-                              重大な健康問題
-                            </Badge>
-                          )}
-                        </div>
+                        {sortedDetails.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {sortedDetails.map((d: any, idx: number) => {
+                              const isDetailRed = d.score >= 40;
+                              const isDetailYellow = d.score >= 11 && !isDetailRed;
+                              const badgeColor = isDetailRed ? "bg-red-500 text-white border-0"
+                                : isDetailYellow ? "bg-amber-500 text-white border-0"
+                                : "bg-blue-500 text-white border-0";
 
-                        {details.length > 0 ? (
-                          <div className="space-y-1.5 pt-1.5 border-t border-dashed border-border/60">
-                            <p className="text-[9.5px] font-bold text-muted-foreground">痛み・違和感のある部位:</p>
-                            <div className="space-y-1">
-                              {details.map((d: any, idx: number) => (
-                                <div key={idx} className="flex items-start justify-between text-xs bg-background/60 p-2 rounded-xl border border-border/40 gap-2">
-                                  <div className="space-y-0.5 min-w-0 flex-1">
-                                    <span className="font-bold text-foreground text-xs block truncate">
-                                      {d.partLabel}
+                              return (
+                                <div key={idx} className="flex items-center justify-between text-xs bg-background/60 p-2 rounded-xl border border-border/40 gap-2 font-medium">
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <span className="font-extrabold text-foreground shrink-0">{d.partLabel}</span>
+                                    <span className="text-[9px] text-muted-foreground shrink-0 font-mono font-semibold">
+                                      (Q1:{d.q1 || 0}|Q2:{d.q2 || 0}|Q3:{d.q3 || 0}|Q4:{d.q4 || 0})
                                     </span>
                                     {d.note && (
-                                      <span className="text-[9.5px] text-muted-foreground block line-clamp-2">
-                                        メモ: {d.note}
+                                      <span className="text-[10px] text-muted-foreground truncate font-semibold">
+                                        ({d.note})
                                       </span>
                                     )}
                                   </div>
-                                  <Badge className={cn("text-[8px] font-extrabold px-1.5 py-0 shrink-0", 
-                                    d.severity === "out" ? "bg-red-500 text-white border-0"
-                                    : d.severity === "limited" ? "bg-amber-500 text-white border-0"
-                                    : "bg-blue-500 text-white border-0"
-                                  )}>
-                                    {d.severity === "out" ? "離脱" : d.severity === "limited" ? "要制限" : "要注意"} ({d.score}点)
+                                  <Badge className={cn("text-[9.5px] font-extrabold px-1.5 py-0 shrink-0", badgeColor)}>
+                                    {d.score}点
                                   </Badge>
                                 </div>
-                              ))}
-                            </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="pt-2 text-center text-[10px] text-muted-foreground italic">
