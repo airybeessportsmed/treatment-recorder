@@ -421,7 +421,10 @@ export default function Home() {
             } else {
               const d = new Date(String(rawDate));
               if (!isNaN(d.getTime())) {
-                dateStr = d.toISOString().split("T")[0];
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
               }
             }
           } catch (err: any) {
@@ -460,7 +463,10 @@ export default function Home() {
             } else {
               const d = new Date(String(rawDate));
               if (!isNaN(d.getTime())) {
-                dateStr = d.toISOString().split("T")[0];
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
               }
             }
           } catch (err) {}
@@ -1548,6 +1554,9 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   選手から提出された週次の傷害調査データに基づき、要注意・要制限・離脱状態の選手を一覧表示します。
                 </p>
+                <p className="text-[10px] text-muted-foreground font-semibold mt-1 bg-accent/40 px-2 py-0.5 rounded-lg inline-block border border-border/50">
+                  ※ 内訳の見方: (Q1:参加 | Q2:練習の変更 | Q3:パフォーマンス | Q4:症状の程度)
+                </p>
               </div>
               {user?.treatmentRole !== "read" && (
                 <div className="flex items-center gap-2 shrink-0">
@@ -1622,7 +1631,7 @@ export default function Home() {
                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                     <span className="font-extrabold text-foreground shrink-0">{d.partLabel}</span>
                                     <span className="text-[9px] text-muted-foreground shrink-0 font-mono font-semibold">
-                                      (Q1:{d.q1 || 0}|Q2:{d.q2 || 0}|Q3:{d.q3 || 0}|Q4:{d.q4 || 0})
+                                      ({d.q1 || 0}|{d.q2 || 0}|{d.q3 || 0}|{d.q4 || 0})
                                     </span>
                                     {d.note && (
                                       <span className="text-[10px] text-muted-foreground truncate font-semibold">
