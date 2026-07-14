@@ -864,9 +864,20 @@ const ostrcRouter = router({
     return db.getLatestOstrcAlerts();
   }),
 
-  importCsv: protectedProcedure
+  importOstrcData: protectedProcedure
     .input(z.object({
-      rows: z.array(z.record(z.string(), z.any())),
+      rows: z.array(z.object({
+        date: z.string(),
+        playerName: z.string(),
+        severityScore: z.number(),
+        injuryDetails: z.array(z.object({
+          partKey: z.string(),
+          partLabel: z.string(),
+          severity: z.enum(["out", "normal", "caution", "limited"]),
+          score: z.number(),
+          note: z.string().optional(),
+        })),
+      })),
     }))
     .mutation(async ({ ctx, input }) => {
       checkTreatmentWrite(ctx.user);
@@ -882,166 +893,35 @@ const ostrcRouter = router({
       let importCount = 0;
 
       for (const row of input.rows) {
-        const keys = Object.keys(row);
-        
-        const dateKey = keys.find(k => /タイムスタンプ|回答日|日付|date|timestamp/i.test(k));
-        let dateVal = "";
-        if (dateKey && row[dateKey]) {
-          try {
-            const parsedDate = new Date(String(row[dateKey]));
-            if (!isNaN(parsedDate.getTime())) {
-              dateVal = parsedDate.toISOString().split("T")[0];
-            }
-          } catch (e) {}
-        }
-        if (!dateVal) continue;
+        const nameClean = row.playerName.trim();
+        let player = playerByName.get(nameClean);
 
-        const playerKey = keys.find(k => /背番号|選手|名前|number|player|name/i.test(k));
-        let player: any = null;
-        if (playerKey && row[playerKey]) {
-          const valStr = String(row[playerKey]).trim();
-          
-          const numMatch = valStr.match(/^#?(\d+)$/);
+        if (!player) {
+          const numMatch = nameClean.match(/^#?(\d+)$/);
           if (numMatch) {
             player = playerByNumber.get(parseInt(numMatch[1], 10));
           } else {
-            player = playerByName.get(valStr);
-            if (!player) {
-              const numNameMatch = valStr.match(/#?(\d+)\s*(.*)/);
-              if (numNameMatch) {
-                player = playerByNumber.get(parseInt(numNameMatch[1], 10));
-              }
-            }
-            if (!player) {
-              player = playersList.find(p => valStr.includes(p.name) || p.name.includes(valStr));
+            const numNameMatch = nameClean.match(/#?(\d+)\s*(.*)/);
+            if (numNameMatch) {
+              player = playerByNumber.get(parseInt(numNameMatch[1], 10));
             }
           }
+          if (!player) {
+            player = playersList.find(p => nameClean.includes(p.name) || p.name.includes(nameClean));
+          }
         }
+
         if (!player) continue;
-
-        const q1Key = keys.find(k => /Q1|参加|練習への参加/i.test(k));
-        const q2Key = keys.find(k => /Q2|練習量|トレーニング量/i.test(k));
-        const q3Key = keys.find(k => /Q3|パフォーマンス|影響/i.test(k));
-        const q4Key = keys.find(k => /Q4|症状|痛み|symptoms|pain/i.test(k));
-
-        const getScoreQ1 = (val: any): number => {
-          const s = String(val || "").trim();
-          if (/完全参加.*健康上の問題なし|健康上の問題なく.*完全参加|問題なく.*完全/i.test(s)) return 0;
-          if (/完全参加.*健康上の問題あり|健康上の問題はあるが.*完全参加|問題はあるが.*完全/i.test(s)) return 8;
-          if (/制限|減少/i.test(s)) return 17;
-          if (/不参加|参加できなかった|全く参加/i.test(s)) return 25;
-          return 0;
-        };
-
-        const getScoreQ2 = (val: any): number => {
-          const s = String(val || "").trim();
-          if (/減少なし|なし/i.test(s)) return 0;
-          if (/軽度|少し/i.test(s)) return 6;
-          if (/中等度|半分/i.test(s)) return 13;
-          if (/強度|重大|不可|全く/i.test(s)) return 25;
-          return 0;
-        };
-
-        const getScoreQ3 = (val: any): number => {
-          const s = String(val || "").trim();
-          if (/影響なし|なし/i.test(s)) return 0;
-          if (/軽度|少し/i.test(s)) return 6;
-          if (/中等度|半分/i.test(s)) return 13;
-          if (/強度|重大|不可|全く/i.test(s)) return 25;
-          return 0;
-        };
-
-        const getScoreQ4 = (val: any): number => {
-          const s = String(val || "").trim();
-          if (/なし|痛みはない|症状はない/i.test(s)) return 0;
-          if (/軽度|軽い|少し/i.test(s)) return 8;
-          if (/中等度|そこそこ/i.test(s)) return 17;
-          if (/重度|激しい|強い/i.test(s)) return 25;
-          return 0;
-        };
-
-        const q1 = getScoreQ1(row[q1Key || ""]);
-        const q2 = getScoreQ2(row[q2Key || ""]);
-        const q3 = getScoreQ3(row[q3Key || ""]);
-        const q4 = getScoreQ4(row[q4Key || ""]);
-
-        const severityScore = q1 + q2 + q3 + q4;
-
-        const bodyPartKey = keys.find(k => /部位|箇所|場所|bodyparts|parts/i.test(k));
-        const noteKey = keys.find(k => /メモ|備考|詳細|コメント|note|comment/i.test(k));
-
-        const bodyPartText = bodyPartKey ? String(row[bodyPartKey] || "") : "";
-        const noteText = noteKey ? String(row[noteKey] || "") : "";
-
-        const injuryDetails: any[] = [];
-        const detailSeverity = q1 >= 17 ? "limited" : q1 >= 8 || q4 >= 8 ? "caution" : "normal";
-
-        const partsTextList = bodyPartText.split(/[,，、・\s/]+/).map(p => p.trim()).filter(Boolean);
-
-        if (partsTextList.length > 0) {
-          const BODY_PARTS_MAPPING = [
-            { key: "left_shoulder", label: "左肩" },
-            { key: "right_shoulder", label: "右肩" },
-            { key: "left_elbow", label: "左肘" },
-            { key: "right_elbow", label: "右肘" },
-            { key: "left_wrist", label: "左手首" },
-            { key: "right_wrist", label: "右手首" },
-            { key: "left_hip", label: "左股関節" },
-            { key: "right_hip", label: "右股関節" },
-            { key: "left_knee", label: "左膝" },
-            { key: "right_knee", label: "右膝" },
-            { key: "left_ankle", label: "左足首" },
-            { key: "right_ankle", label: "右足首" },
-            { key: "lower_back", label: "腰" },
-            { key: "neck", label: "首" },
-            { key: "back", label: "背中" },
-            { key: "chest", label: "胸" },
-            { key: "abdomen", label: "腹部" }
-          ];
-
-          partsTextList.forEach(partText => {
-            const match = BODY_PARTS_MAPPING.find(bpm => 
-              partText.includes(bpm.label) || bpm.label.includes(partText)
-            );
-            if (match) {
-              injuryDetails.push({
-                partKey: match.key,
-                partLabel: match.label,
-                severity: detailSeverity,
-                score: q4,
-                note: noteText || undefined,
-              });
-            } else if (partText) {
-              injuryDetails.push({
-                partKey: "other",
-                partLabel: partText,
-                severity: detailSeverity,
-                score: q4,
-                note: noteText || undefined,
-              });
-            }
-          });
-        }
-
-        if (injuryDetails.length === 0 && severityScore > 0) {
-          injuryDetails.push({
-            partKey: "general",
-            partLabel: "全身/不明",
-            severity: detailSeverity,
-            score: q4,
-            note: noteText || undefined,
-          });
-        }
 
         await db.upsertOstrcResponse({
           playerId: player.id,
-          date: dateVal,
-          severityScore,
-          q1Participation: q1,
-          q2Volume: q2,
-          q3Performance: q3,
-          q4Symptoms: q4,
-          injuryDetails,
+          date: row.date,
+          severityScore: row.severityScore,
+          q1Participation: 0,
+          q2Volume: 0,
+          q3Performance: 0,
+          q4Symptoms: 0,
+          injuryDetails: row.injuryDetails,
         });
 
         importCount++;

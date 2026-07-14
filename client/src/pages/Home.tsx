@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import BodyMap from "@/components/BodyMap";
 import AnnotationCanvas, { type AnnotationData } from "@/components/AnnotationCanvas";
 import { motion, AnimatePresence } from "framer-motion";
+import * as XLSX from "xlsx";
 import {
   BODY_PARTS,
   TREATMENT_TYPES,
@@ -310,7 +311,7 @@ export default function Home() {
     enabled: activeTab === "dashboard",
   });
 
-  const importOstrcMutation = trpc.ostrc.importCsv.useMutation({
+  const importOstrcMutation = trpc.ostrc.importOstrcData.useMutation({
     onSuccess: (res) => {
       toast.success(`OSTRC データを ${res.count} 件インポートしました`);
       refetchOstrcAlerts();
@@ -320,65 +321,135 @@ export default function Home() {
     },
   });
 
-  const handleOstrcCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOstrcExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
-
+    reader.onload = (event) => {
+      const data = new Uint8Array(event.target?.result as ArrayBuffer);
       try {
-        const parseCSV = (csvText: string) => {
-          const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
-          if (lines.length === 0) return [];
-          
-          const splitCSVLine = (line: string) => {
-            const result: string[] = [];
-            let current = "";
-            let inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-              const char = line[i];
-              if (char === '"') {
-                inQuotes = !inQuotes;
-              } else if (char === ',' && !inQuotes) {
-                result.push(current.replace(/^"|"$/g, '').trim());
-                current = "";
-              } else {
-                current += char;
-              }
-            }
-            result.push(current.replace(/^"|"$/g, '').trim());
-            return result;
-          };
-
-          const headers = splitCSVLine(lines[0]);
-          const rows: any[] = [];
-          for (let i = 1; i < lines.length; i++) {
-            const values = splitCSVLine(lines[i]);
-            if (values.length < headers.length) continue;
-            const row: Record<string, string> = {};
-            headers.forEach((header, idx) => {
-              row[header] = values[idx] || "";
-            });
-            rows.push(row);
-          }
-          return rows;
-        };
-
-        const rows = parseCSV(text);
-        if (rows.length === 0) {
-          toast.error("インポート可能なデータが見つかりませんでした");
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        const rawRows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        if (rawRows.length <= 1) {
+          toast.error("有効なデータが見つかりませんでした");
           return;
         }
 
-        importOstrcMutation.mutate({ rows });
-      } catch (err: any) {
-        toast.error("CSVファイルの解析に失敗しました");
+        const parsedRows: any[] = [];
+
+        for (let i = 1; i < rawRows.length; i++) {
+          const row = rawRows[i];
+          if (!row || row.length < 4) continue;
+
+          const rawDate = row[1] || row[2];
+          if (!rawDate) continue;
+
+          let dateStr = "";
+          try {
+            if (typeof rawDate === "number") {
+              const dateObj = XLSX.SSF.parse_date_code(rawDate);
+              dateStr = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+            } else {
+              const d = new Date(String(rawDate));
+              if (!isNaN(d.getTime())) {
+                dateStr = d.toISOString().split("T")[0];
+              }
+            }
+          } catch (err) {}
+
+          if (!dateStr) continue;
+
+          const playerName = String(row[3] || "").trim();
+          if (!playerName) continue;
+
+          const injuryDetails: any[] = [];
+          let maxSeverityScore = 0;
+
+          const partIndexGroups = [
+            { partIdx: 4, scoreIdx: 5, statusIdx: 6 },
+            { partIdx: 7, scoreIdx: 8, statusIdx: 9 },
+            { partIdx: 10, scoreIdx: 11, statusIdx: 12 },
+            { partIdx: 13, scoreIdx: 14, statusIdx: 15 },
+          ];
+
+          const BODY_PARTS_MAPPING = [
+            { key: "left_shoulder", label: "左肩" },
+            { key: "right_shoulder", label: "右肩" },
+            { key: "left_elbow", label: "左肘" },
+            { key: "right_elbow", label: "右肘" },
+            { key: "left_wrist", label: "左手首" },
+            { key: "right_wrist", label: "右手首" },
+            { key: "left_hip", label: "左股関節" },
+            { key: "right_hip", label: "右股関節" },
+            { key: "left_knee", label: "左膝" },
+            { key: "right_knee", label: "右膝" },
+            { key: "left_ankle", label: "左足首" },
+            { key: "right_ankle", label: "右足首" },
+            { key: "lower_back", label: "腰" },
+            { key: "neck", label: "首" },
+            { key: "back", label: "背中" },
+            { key: "chest", label: "胸" },
+            { key: "abdomen", label: "腹部" }
+          ];
+
+          partIndexGroups.forEach(group => {
+            const rawPart = String(row[group.partIdx] || "").trim();
+            const rawScore = Number(row[group.scoreIdx]);
+            const rawStatus = String(row[group.statusIdx] || "").trim();
+
+            if (rawPart && !isNaN(rawScore) && rawScore > 0) {
+              if (rawScore > maxSeverityScore) {
+                maxSeverityScore = rawScore;
+              }
+
+              const match = BODY_PARTS_MAPPING.find(bpm => 
+                rawPart.includes(bpm.label) || bpm.label.includes(rawPart)
+              );
+
+              let severity = "normal";
+              if (rawStatus.includes("離脱") || rawStatus.includes("out")) {
+                severity = "out";
+              } else if (rawStatus.includes("制限") || rawStatus.includes("limited")) {
+                severity = "limited";
+              } else if (rawStatus.includes("注意") || rawStatus.includes("caution")) {
+                severity = "caution";
+              }
+
+              injuryDetails.push({
+                partKey: match ? match.key : "other",
+                partLabel: rawPart,
+                severity: severity,
+                score: rawScore,
+                note: rawStatus || undefined,
+              });
+            }
+          });
+
+          if (injuryDetails.length > 0) {
+            parsedRows.push({
+              date: dateStr,
+              playerName,
+              severityScore: maxSeverityScore,
+              injuryDetails,
+            });
+          }
+        }
+
+        if (parsedRows.length === 0) {
+          toast.error("有効なアラートデータ（部位およびスコア）が見つかりませんでした");
+          return;
+        }
+
+        importOstrcMutation.mutate({ rows: parsedRows });
+      } catch (err) {
+        toast.error("Excelファイルの読み込みに失敗しました");
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
     e.target.value = "";
   };
 
@@ -1384,8 +1455,8 @@ export default function Home() {
                 <div className="flex items-center gap-2 shrink-0">
                   <input
                     type="file"
-                    accept=".csv"
-                    onChange={handleOstrcCsvUpload}
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleOstrcExcelUpload}
                     className="hidden"
                     id="ostrc-csv-upload"
                   />
@@ -1394,7 +1465,7 @@ export default function Home() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-xl text-xs font-bold bg-background text-foreground hover:bg-accent cursor-pointer transition-all shadow-sm"
                   >
                     <Download className="h-3.5 w-3.5" />
-                    CSVをインポート
+                    データをインポート
                   </label>
                 </div>
               )}
