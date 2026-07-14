@@ -330,29 +330,84 @@ export default function Home() {
       const data = new Uint8Array(event.target?.result as ArrayBuffer);
       try {
         const workbook = XLSX.read(data, { type: "array" });
-        // 「シート2」「Sheet 2」「Sheet2」などの名前が含まれるシートを優先的に探す
-        let sheetName = workbook.SheetNames.find(name => 
-          name.includes("シート2") || name.toLowerCase().includes("sheet2") || name.includes("抽出")
-        );
-        // 見つからない場合は最初のシートを使用
-        if (!sheetName) {
-          sheetName = workbook.SheetNames[0];
-        }
-        const worksheet = workbook.Sheets[sheetName];
         
+        let targetSheetName = "";
+        for (const name of workbook.SheetNames) {
+          const sheet = workbook.Sheets[name];
+          const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+          if (rows.length > 0) {
+            const firstRow = rows[0] || [];
+            const hasStatus = firstRow.some(cell => /status/i.test(String(cell)));
+            const hasTotal = firstRow.some(cell => /合計/i.test(String(cell)));
+            const hasResponder = firstRow.some(cell => /回答者|名前/i.test(String(cell)));
+            
+            if (hasStatus && hasTotal && hasResponder) {
+              targetSheetName = name;
+              break;
+            }
+          }
+        }
+
+        if (!targetSheetName) {
+          const nameMatch = workbook.SheetNames.find(name => 
+            name.includes("シート2") || name.toLowerCase().includes("sheet2") || name.includes("抽出")
+          );
+          targetSheetName = nameMatch || workbook.SheetNames[0];
+        }
+
+        const worksheet = workbook.Sheets[targetSheetName];
         const rawRows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
         if (rawRows.length <= 1) {
           toast.error("有効なデータが見つかりませんでした");
           return;
         }
 
+        let headerRowIndex = -1;
+        for (let i = 0; i < rawRows.length; i++) {
+          const r = rawRows[i];
+          if (r && r.length > 3 && r.some(cell => /回答者|名前|Status/i.test(String(cell)))) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+        if (headerRowIndex === -1) headerRowIndex = 0;
+
+        const headerRow = rawRows[headerRowIndex] || [];
+
+        let dateIdx = headerRow.findIndex(cell => /日付|date/i.test(String(cell)));
+        let timestampIdx = headerRow.findIndex(cell => /タイムスタンプ|timestamp/i.test(String(cell)));
+        let playerIdx = headerRow.findIndex(cell => /回答者|名前|選手|player/i.test(String(cell)));
+
+        if (dateIdx === -1) dateIdx = 1;
+        if (timestampIdx === -1) timestampIdx = 2;
+        if (playerIdx === -1) playerIdx = 3;
+
+        const partIndexGroups: { partIdx: number, scoreIdx: number, statusIdx: number }[] = [];
+        for (let idx = 0; idx < headerRow.length; idx++) {
+          const cellStr = String(headerRow[idx]);
+          if (cellStr.includes("部位")) {
+            const scoreIdx = idx + 1;
+            const statusIdx = idx + 2;
+            partIndexGroups.push({ partIdx: idx, scoreIdx, statusIdx });
+          }
+        }
+
+        if (partIndexGroups.length === 0) {
+          partIndexGroups.push(
+            { partIdx: 4, scoreIdx: 5, statusIdx: 6 },
+            { partIdx: 7, scoreIdx: 8, statusIdx: 9 },
+            { partIdx: 10, scoreIdx: 11, statusIdx: 12 },
+            { partIdx: 13, scoreIdx: 14, statusIdx: 15 }
+          );
+        }
+
         const parsedRows: any[] = [];
 
-        for (let i = 1; i < rawRows.length; i++) {
+        for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
           const row = rawRows[i];
-          if (!row || row.length < 4) continue;
+          if (!row || row.length <= Math.max(dateIdx, timestampIdx, playerIdx)) continue;
 
-          const rawDate = row[1] || row[2];
+          const rawDate = row[dateIdx] || row[timestampIdx];
           if (!rawDate) continue;
 
           let dateStr = "";
@@ -370,18 +425,11 @@ export default function Home() {
 
           if (!dateStr) continue;
 
-          const playerName = String(row[3] || "").trim();
+          const playerName = String(row[playerIdx] || "").trim();
           if (!playerName) continue;
 
           const injuryDetails: any[] = [];
           let maxSeverityScore = 0;
-
-          const partIndexGroups = [
-            { partIdx: 4, scoreIdx: 5, statusIdx: 6 },
-            { partIdx: 7, scoreIdx: 8, statusIdx: 9 },
-            { partIdx: 10, scoreIdx: 11, statusIdx: 12 },
-            { partIdx: 13, scoreIdx: 14, statusIdx: 15 },
-          ];
 
           const BODY_PARTS_MAPPING = [
             { key: "left_shoulder", label: "左肩" },
