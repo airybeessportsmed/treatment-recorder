@@ -530,6 +530,7 @@ export default function Home() {
             parsedRows.push({
               date: dateStr,
               playerName,
+              searchKey: String(row[0] || ""),
               severityScore: maxSeverityScore,
               injuryDetails,
             });

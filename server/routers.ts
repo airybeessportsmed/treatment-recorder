@@ -859,6 +859,45 @@ const approvalRouter = router({
     }),
 });
 
+function matchPlayerByRomaji(romajiName: string, playersList: any[]) {
+  const cleanRomaji = romajiName.toLowerCase().replace(/[\s\._-]/g, "");
+  if (!cleanRomaji) return null;
+  
+  const romajiMap: Record<string, string[]> = {
+    "山下晴奈": ["yamashitaharuna", "harunayamashita", "yamashitahaluna", "halunayamashita"],
+    "川畑 遥奈": ["kawabataharuna", "harunakawabata", "kawabatahaluna", "halunakawabata"],
+    "福本 眸": ["fukumotohitomi", "hitomifukumoto", "fukumotohitomy"],
+    "Rosamaria Montibeller": ["rosamariamontibeller", "rosamaria", "montibeller"],
+    "中元 南": ["nakamotominami", "minaminakamoto"],
+    "石倉 沙姫": ["ishikurasaki", "sakiishikura"],
+    "山崎 のの花": ["yamazakinonoka", "nonokayamazaki"],
+    "柳 千嘉": ["yanagichika", "chikayanagi"],
+    "野田 祐希": ["nodayuki", "yukinoda"],
+    "山上 有紀": ["yamagamiyuki", "yukiyamagami"],
+    "川岸 夕紗": ["kawagishiyusa", "yusakawagishi"],
+    "和田 栞菜": ["wadakanna", "kannawada"],
+    "大﨑 琴未": ["osakikotomi", "kotomiosaki", "ohsakikotomi", "kotomiohsaki"],
+    "瀬戸 杏華": ["setokyoka", "kyokaseto"],
+    "イェー モン ミャ": ["ayemonmya", "yemonmya", "mya", "ayemon"],
+  };
+
+  for (const [jpName, patterns] of Object.entries(romajiMap)) {
+    if (patterns.includes(cleanRomaji)) {
+      const found = playersList.find(p => p.name.replace(/\s/g, "") === jpName.replace(/\s/g, ""));
+      if (found) return found;
+    }
+  }
+
+  for (const [jpName, patterns] of Object.entries(romajiMap)) {
+    if (patterns.some(pat => cleanRomaji.includes(pat) || pat.includes(cleanRomaji))) {
+      const found = playersList.find(p => p.name.replace(/\s/g, "") === jpName.replace(/\s/g, ""));
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
 const ostrcRouter = router({
   listLatest: protectedProcedure.query(async ({ ctx }) => {
     return db.getLatestOstrcAlerts();
@@ -869,6 +908,7 @@ const ostrcRouter = router({
       rows: z.array(z.object({
         date: z.string(),
         playerName: z.string(),
+        searchKey: z.string().optional(),
         severityScore: z.number(),
         injuryDetails: z.array(z.object({
           partKey: z.string(),
@@ -894,21 +934,36 @@ const ostrcRouter = router({
 
       for (const row of input.rows) {
         const nameClean = row.playerName.trim();
-        let player = playerByName.get(nameClean);
+        const searchClean = (row.searchKey || "").trim();
+        
+        let player = playerByName.get(nameClean) || (searchClean ? playerByName.get(searchClean) : undefined);
 
         if (!player) {
-          const numMatch = nameClean.match(/^#?(\d+)$/);
+          const numMatch = nameClean.match(/^#?(\d+)$/) || searchClean.match(/^#?(\d+)$/);
           if (numMatch) {
             player = playerByNumber.get(parseInt(numMatch[1], 10));
           } else {
-            const numNameMatch = nameClean.match(/#?(\d+)\s*(.*)/);
+            const numNameMatch = nameClean.match(/#?(\d+)\s*(.*)/) || searchClean.match(/#?(\d+)\s*(.*)/);
             if (numNameMatch) {
               player = playerByNumber.get(parseInt(numNameMatch[1], 10));
             }
           }
-          if (!player) {
-            player = playersList.find(p => nameClean.includes(p.name) || p.name.includes(nameClean));
-          }
+        }
+
+        if (!player) {
+          player = playersList.find(p => nameClean.includes(p.name) || p.name.includes(nameClean));
+        }
+
+        if (!player && searchClean) {
+          player = playersList.find(p => searchClean.includes(p.name) || p.name.includes(searchClean));
+        }
+
+        if (!player) {
+          player = matchPlayerByRomaji(nameClean, playersList);
+        }
+
+        if (!player && searchClean) {
+          player = matchPlayerByRomaji(searchClean, playersList);
         }
 
         if (!player) continue;
