@@ -305,6 +305,83 @@ export default function Home() {
   // Active Tab State: 'dashboard' or 'record' or 'report'
   const [activeTab, setActiveTab] = useState<string>("dashboard");
 
+  // OSTRC Alerts Query
+  const { data: ostrcAlerts, refetch: refetchOstrcAlerts } = trpc.ostrc.listLatest.useQuery(undefined, {
+    enabled: activeTab === "dashboard",
+  });
+
+  const importOstrcMutation = trpc.ostrc.importCsv.useMutation({
+    onSuccess: (res) => {
+      toast.success(`OSTRC データを ${res.count} 件インポートしました`);
+      refetchOstrcAlerts();
+    },
+    onError: (err) => {
+      toast.error(`インポートに失敗しました: ${err.message}`);
+    },
+  });
+
+  const handleOstrcCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      try {
+        const parseCSV = (csvText: string) => {
+          const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
+          if (lines.length === 0) return [];
+          
+          const splitCSVLine = (line: string) => {
+            const result: string[] = [];
+            let current = "";
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.replace(/^"|"$/g, '').trim());
+                current = "";
+              } else {
+                current += char;
+              }
+            }
+            result.push(current.replace(/^"|"$/g, '').trim());
+            return result;
+          };
+
+          const headers = splitCSVLine(lines[0]);
+          const rows: any[] = [];
+          for (let i = 1; i < lines.length; i++) {
+            const values = splitCSVLine(lines[i]);
+            if (values.length < headers.length) continue;
+            const row: Record<string, string> = {};
+            headers.forEach((header, idx) => {
+              row[header] = values[idx] || "";
+            });
+            rows.push(row);
+          }
+          return rows;
+        };
+
+        const rows = parseCSV(text);
+        if (rows.length === 0) {
+          toast.error("インポート可能なデータが見つかりませんでした");
+          return;
+        }
+
+        importOstrcMutation.mutate({ rows });
+      } catch (err: any) {
+        toast.error("CSVファイルの解析に失敗しました");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   // Report Date Range State
   const [reportDateFrom, setReportDateFrom] = useState<string>(() => {
     const d = new Date();
@@ -1289,6 +1366,125 @@ export default function Home() {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* 🚨 OSTRC Condition Alerts Section */}
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t pt-5">
+              <div>
+                <h2 className="text-base font-bold text-foreground flex items-center gap-1.5">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  OSTRC 傷害調査アラート
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  選手から提出された週次の傷害調査データに基づき、要注意・要制限・離脱状態の選手を一覧表示します。
+                </p>
+              </div>
+              {user?.treatmentRole !== "read" && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleOstrcCsvUpload}
+                    className="hidden"
+                    id="ostrc-csv-upload"
+                  />
+                  <label
+                    htmlFor="ostrc-csv-upload"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-xl text-xs font-bold bg-background text-foreground hover:bg-accent cursor-pointer transition-all shadow-sm"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    CSVをインポート
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {ostrcAlerts && ostrcAlerts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ostrcAlerts.map(alert => {
+                  const hasSubstantial = alert.q1Participation >= 17 || alert.q2Volume >= 13 || alert.q3Performance >= 13;
+                  const isRed = alert.severityScore >= 40 || hasSubstantial;
+                  const isYellow = alert.severityScore >= 11 && !isRed;
+                  
+                  const severityBg = isRed ? "border-red-200 bg-red-500/5 dark:bg-red-500/10 text-red-900 dark:text-red-100" 
+                    : isYellow ? "border-amber-200 bg-amber-500/5 dark:bg-amber-500/10 text-amber-900 dark:text-amber-100" 
+                    : "border-green-200 bg-green-500/5 dark:bg-green-500/10 text-green-900 dark:text-green-100";
+                  
+                  const scoreBadgeColor = isRed ? "bg-red-500/10 text-red-600 border-red-500/20"
+                    : isYellow ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                    : "bg-green-500/10 text-green-600 border-green-500/20";
+
+                  const details = alert.injuryDetails || [];
+
+                  return (
+                    <Card key={alert.id} className={cn("border shadow-xs overflow-hidden transition-all", severityBg)}>
+                      <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-extrabold text-foreground">
+                            #{alert.playerNumber} {alert.playerName}
+                          </span>
+                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border font-semibold", scoreBadgeColor)}>
+                            {alert.severityScore}点
+                          </Badge>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-mono font-medium">
+                          {alert.date}
+                        </span>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-1 space-y-2">
+                        <div className="text-[10px] text-muted-foreground flex justify-between items-center font-medium">
+                          <span>Q1:{alert.q1Participation} | Q2:{alert.q2Volume} | Q3:{alert.q3Performance} | Q4:{alert.q4Symptoms}</span>
+                          {hasSubstantial && (
+                            <Badge className="bg-red-600 text-white border-0 text-[8px] font-extrabold px-1.5 py-0">
+                              重大な健康問題
+                            </Badge>
+                          )}
+                        </div>
+
+                        {details.length > 0 ? (
+                          <div className="space-y-1.5 pt-1.5 border-t border-dashed border-border/60">
+                            <p className="text-[9.5px] font-bold text-muted-foreground">痛み・違和感のある部位:</p>
+                            <div className="space-y-1">
+                              {details.map((d: any, idx: number) => (
+                                <div key={idx} className="flex items-start justify-between text-xs bg-background/60 p-2 rounded-xl border border-border/40 gap-2">
+                                  <div className="space-y-0.5 min-w-0 flex-1">
+                                    <span className="font-bold text-foreground text-xs block truncate">
+                                      {d.partLabel}
+                                    </span>
+                                    {d.note && (
+                                      <span className="text-[9.5px] text-muted-foreground block line-clamp-2">
+                                        メモ: {d.note}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Badge className={cn("text-[8px] font-extrabold px-1.5 py-0 shrink-0", 
+                                    d.severity === "out" ? "bg-red-500 text-white border-0"
+                                    : d.severity === "limited" ? "bg-amber-500 text-white border-0"
+                                    : "bg-blue-500 text-white border-0"
+                                  )}>
+                                    {d.severity === "out" ? "離脱" : d.severity === "limited" ? "要制限" : "要注意"} ({d.score}点)
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-2 text-center text-[10px] text-muted-foreground italic">
+                            部位データの記載なし
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center py-12 border border-dashed border-border rounded-xl bg-accent/5">
+                <ClipboardCheck className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs font-semibold text-muted-foreground">現在アクティブな OSTRC 警告はありません</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 

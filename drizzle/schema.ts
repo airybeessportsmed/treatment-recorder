@@ -231,3 +231,26 @@ export const userApprovals = mysqlTable("user_approvals", {
 export type UserApproval = typeof userApprovals.$inferSelect;
 export type InsertUserApproval = typeof userApprovals.$inferInsert;
 
+export const ostrcResponses = mysqlTable("ostrc_responses", {
+  id: int("id").autoincrement().primaryKey(),
+  playerId: int("playerId").notNull(),
+  date: varchar("date", { length: 10 }).notNull(),
+  severityScore: int("severityScore").notNull(),
+  q1Participation: int("q1Participation").notNull(),
+  q2Volume: int("q2Volume").notNull(),
+  q3Performance: int("q3Performance").notNull(),
+  q4Symptoms: int("q4Symptoms").notNull(),
+  injuryDetails: json("injuryDetails").$type<Array<{
+    partKey: string;
+    partLabel: string;
+    severity: "normal" | "caution" | "limited" | "out";
+    score: number;
+    note?: string;
+  }>>().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type OstrcResponse = typeof ostrcResponses.$inferSelect;
+export type InsertOstrcResponse = typeof ostrcResponses.$inferInsert;
+

@@ -1,7 +1,7 @@
 import { eq, desc, and, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, players, treatments, schedules, exercises, type InsertPlayer, type InsertTreatment, type InsertExercise } from "../drizzle/schema";
+import { InsertUser, users, players, treatments, schedules, exercises, ostrcResponses, type InsertPlayer, type InsertTreatment, type InsertExercise, type InsertOstrcResponse } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -461,5 +461,59 @@ export async function mergeUsers(sourceUserId: number, targetUserId: number): Pr
       .set({ isActive: 0 })
       .where(eq(users.id, sourceUserId));
   });
+}
+
+export async function upsertOstrcResponse(data: InsertOstrcResponse) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  const existing = await db
+    .select()
+    .from(ostrcResponses)
+    .where(and(eq(ostrcResponses.playerId, data.playerId), eq(ostrcResponses.date, data.date)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(ostrcResponses)
+      .set(data)
+      .where(eq(ostrcResponses.id, existing[0].id));
+    return existing[0].id;
+  } else {
+    const result = await db.insert(ostrcResponses).values(data);
+    return result[0];
+  }
+}
+
+export async function getLatestOstrcAlerts() {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  const rows = await db
+    .select({
+      id: ostrcResponses.id,
+      playerId: ostrcResponses.playerId,
+      playerName: players.name,
+      playerNumber: players.number,
+      date: ostrcResponses.date,
+      severityScore: ostrcResponses.severityScore,
+      q1Participation: ostrcResponses.q1Participation,
+      q2Volume: ostrcResponses.q2Volume,
+      q3Performance: ostrcResponses.q3Performance,
+      q4Symptoms: ostrcResponses.q4Symptoms,
+      injuryDetails: ostrcResponses.injuryDetails,
+    })
+    .from(ostrcResponses)
+    .innerJoin(players, eq(ostrcResponses.playerId, players.id))
+    .where(
+      sql`${ostrcResponses.date} = (
+        SELECT MAX(r2.date) 
+        FROM ostrc_responses r2 
+        WHERE r2.playerId = ${ostrcResponses.playerId}
+      )`
+    )
+    .orderBy(desc(ostrcResponses.severityScore));
+
+  return rows;
 }
 

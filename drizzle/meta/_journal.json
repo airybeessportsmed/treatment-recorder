@@ -57,6 +57,13 @@
       "when": 1781919369078,
       "tag": "0007_same_cerebro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1783922900257,
+      "tag": "0008_mute_skrulls",
+      "breakpoints": true
     }
   ]
 }
