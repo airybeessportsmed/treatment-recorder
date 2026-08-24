@@ -1000,7 +1000,20 @@ export const appRouter = router({
       return { success: true } as const;
     }),
     listTrainers: publicProcedure.query(async () => {
-      return db.getAllUsers();
+      let usersList = await db.getAllUsers();
+      if (usersList.length === 0) {
+        const { ENV } = await import("./_core/env");
+        if (ENV.ownerOpenId) {
+          await db.upsertUser({
+            openId: ENV.ownerOpenId,
+            name: ENV.ownerName || "オーナー",
+            loginMethod: "mock",
+            lastSignedIn: new Date(),
+          });
+          usersList = await db.getAllUsers();
+        }
+      }
+      return usersList;
     }),
     createTrainer: publicProcedure
       .input(z.object({
