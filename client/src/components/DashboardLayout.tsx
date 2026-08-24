@@ -577,7 +577,7 @@ function TrainerLoginView() {
   
   const utils = trpc.useUtils();
   
-  const { data: trainers, isLoading } = trpc.auth.listTrainers.useQuery();
+  const { data: trainers, isLoading, error } = trpc.auth.listTrainers.useQuery();
   
   const createTrainerMutation = trpc.auth.createTrainer.useMutation({
     onSuccess: () => {
@@ -687,6 +687,14 @@ function TrainerLoginView() {
             <div className="flex flex-col gap-3 py-8 items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
               <span className="text-xs text-slate-500 mt-2">メンバー一覧を読み込み中...</span>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col py-8 px-4 items-center justify-center text-center bg-red-950/20 border border-red-900/40 rounded-2xl">
+              <Activity className="h-8 w-8 text-red-500 mb-2" />
+              <p className="text-xs font-bold text-red-400">データベース接続エラー</p>
+              <p className="text-[10px] text-slate-400 mt-1 leading-relaxed max-w-xs">
+                新しい Render アカウント側の環境変数 (DATABASE_URL) の設定をご確認ください。
+              </p>
             </div>
           ) : trainers && trainers.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
