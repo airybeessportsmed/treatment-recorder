@@ -11,6 +11,7 @@ import { storagePut, storageDelete } from "./storage";
 import { notifyOwner } from "./_core/notification";
 import { parseProgramsFromPDF } from "./pdfParser";
 import { parseProgramsFromExcel } from "./excelParser";
+import { ENV } from "./_core/env";
 
 // ==========================================
 // トレーニング管理アプリから移植された Zod スキーマ
@@ -1002,16 +1003,15 @@ export const appRouter = router({
     listTrainers: publicProcedure.query(async () => {
       let usersList = await db.getAllUsers();
       if (usersList.length === 0) {
-        const { ENV } = await import("./_core/env");
-        if (ENV.ownerOpenId) {
-          await db.upsertUser({
-            openId: ENV.ownerOpenId,
-            name: ENV.ownerName || "オーナー",
-            loginMethod: "mock",
-            lastSignedIn: new Date(),
-          });
-          usersList = await db.getAllUsers();
-        }
+        const ownerOpenId = ENV.ownerOpenId || "EwkguvxBunXVDhHyyAtN67";
+        const ownerName = ENV.ownerName || "toshi";
+        await db.upsertUser({
+          openId: ownerOpenId,
+          name: ownerName,
+          loginMethod: "mock",
+          lastSignedIn: new Date(),
+        });
+        usersList = await db.getAllUsers();
       }
       return usersList;
     }),
