@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Star, RefreshCw } from "lucide-react";
+import { Calendar, Save, Users, Clock, AlertCircle, Sun, Moon, Plus, Trash2, Star, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 const SCHEDULE_OPTIONS = [
   "Ball",
@@ -54,6 +54,31 @@ export default function Schedules() {
     return localDate.toISOString().split("T")[0];
   });
 
+  // Base date for 14-day heatmap statistics (defaults to today)
+  const [heatmapBaseDate, setHeatmapBaseDate] = useState<string>(() => {
+    const local = new Date();
+    const offset = local.getTimezoneOffset();
+    const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split("T")[0];
+  });
+
+  const todayStr = useMemo(() => {
+    const local = new Date();
+    const offset = local.getTimezoneOffset();
+    const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split("T")[0];
+  }, []);
+
+  const shiftDateString = (dateStr: string, days: number) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    if (!y || !m || !d) return dateStr;
+    const dateObj = new Date(y, m - 1, d + days);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   // Load existing players list
   const { data: players, isLoading: playersLoading } = trpc.player.list.useQuery();
 
@@ -97,19 +122,14 @@ export default function Schedules() {
     dateTo: dateRange[dateRange.length - 1],
   });
 
-  // Calculate 14 days date range for statistics (from -10 to +3 relative to today)
+  // Calculate 14 days date range for statistics (from -10 to +3 relative to heatmapBaseDate)
   const statsDateRange = useMemo(() => {
     const dates: string[] = [];
-    const baseDate = new Date();
     for (let i = -10; i <= 3; i++) {
-      const d = new Date(baseDate);
-      d.setDate(baseDate.getDate() + i);
-      const offset = d.getTimezoneOffset();
-      const localD = new Date(d.getTime() - (offset * 60 * 1000));
-      dates.push(localD.toISOString().split("T")[0]);
+      dates.push(shiftDateString(heatmapBaseDate, i));
     }
     return dates;
-  }, []);
+  }, [heatmapBaseDate]);
 
   // Load schedules for the 14 days stats range
   const { data: statsSchedulesData, isLoading: statsSchedulesLoading } = trpc.schedule.list.useQuery({
@@ -814,41 +834,134 @@ export default function Schedules() {
       {/* 📊 トリートメント集計・ヒートマップ (14日間) */}
       <Card className="shadow-lg border border-border/80 overflow-hidden relative mt-6">
         <div className="absolute top-0 right-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-        <CardHeader className="pb-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/20">
-          <div>
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-              <Users className="h-5 w-5 text-indigo-500" />
-              トリートメント集計・ヒートマップ (14日間)
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              10日前から当日、および3日後までの予定（濃い色）と、実際に行った治療（薄い色）をスタッフ別に一覧・集計します。
-            </CardDescription>
+        <CardHeader className="pb-3 border-b flex flex-col gap-4 bg-muted/20">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+                <Users className="h-5 w-5 text-indigo-500" />
+                トリートメント集計・ヒートマップ (14日間)
+              </CardTitle>
+              <CardDescription className="text-xs mt-1">
+                基準日（{heatmapBaseDate}）の10日前から3日後まで（{statsDateRange[0]} 〜 {statsDateRange[statsDateRange.length - 1]}）の予定（濃い色）と、実際に行った治療（薄い色）をスタッフ別に一覧・集計します。
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground bg-background px-3 py-2 rounded-xl border">
+              <span className="font-semibold text-foreground uppercase tracking-wider block w-full mb-1 text-[9px]">凡例</span>
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="h-3 w-5 bg-red-500 rounded border shadow-sm shrink-0" />
+                <span>Miya (予定)</span>
+              </div>
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="h-3 w-5 bg-red-200 dark:bg-red-950/40 rounded border shrink-0" />
+                <span>Miya (予定外)</span>
+              </div>
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="h-3 w-5 bg-emerald-500 rounded border shadow-sm shrink-0" />
+                <span>Shima (予定)</span>
+              </div>
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="h-3 w-5 bg-emerald-200 dark:bg-emerald-950/40 rounded border shrink-0" />
+                <span>Shima (予定外)</span>
+              </div>
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="h-3 w-5 bg-amber-500 rounded border shadow-sm shrink-0" />
+                <span>Toshi (予定)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-5 bg-amber-200 dark:bg-amber-950/40 rounded border shrink-0" />
+                <span>Toshi (予定外)</span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground bg-background px-3 py-2 rounded-xl border">
-            <span className="font-semibold text-foreground uppercase tracking-wider block w-full mb-1 text-[9px]">凡例</span>
-            <div className="flex items-center gap-1.5 mr-2">
-              <span className="h-3 w-5 bg-red-500 rounded border shadow-sm shrink-0" />
-              <span>Miya (予定)</span>
+
+          {/* 基準日変更コントロールバー */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-background/80 px-3 py-2 rounded-xl border border-border/70">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="heatmap-base-date" className="text-xs font-semibold flex items-center gap-1.5 text-foreground shrink-0">
+                <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+                基準日:
+              </Label>
+              <input
+                id="heatmap-base-date"
+                type="date"
+                value={heatmapBaseDate}
+                onChange={(e) => {
+                  if (e.target.value) setHeatmapBaseDate(e.target.value);
+                }}
+                className="px-2.5 py-1 rounded-lg border border-border bg-background hover:border-primary/50 focus:border-primary focus:outline-none text-xs font-mono transition-all shadow-sm text-foreground"
+              />
+              <div className="flex flex-wrap items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHeatmapBaseDate(prev => shiftDateString(prev, -7))}
+                  className="h-7 px-2 text-[11px] gap-0.5"
+                  title="基準日を7日前に移動"
+                >
+                  <ChevronsLeft className="h-3.5 w-3.5" />
+                  1週前
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHeatmapBaseDate(prev => shiftDateString(prev, -1))}
+                  className="h-7 px-2 text-[11px] gap-0.5"
+                  title="基準日を前日に移動"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  前日
+                </Button>
+                <Button
+                  type="button"
+                  variant={heatmapBaseDate === todayStr ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setHeatmapBaseDate(todayStr)}
+                  className="h-7 px-2.5 text-[11px]"
+                >
+                  今日
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHeatmapBaseDate(prev => shiftDateString(prev, 1))}
+                  className="h-7 px-2 text-[11px] gap-0.5"
+                  title="基準日を翌日に移動"
+                >
+                  翌日
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHeatmapBaseDate(prev => shiftDateString(prev, 7))}
+                  className="h-7 px-2 text-[11px] gap-0.5"
+                  title="基準日を7日後に移動"
+                >
+                  1週後
+                  <ChevronsRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 mr-2">
-              <span className="h-3 w-5 bg-red-200 dark:bg-red-950/40 rounded border shrink-0" />
-              <span>Miya (予定外)</span>
-            </div>
-            <div className="flex items-center gap-1.5 mr-2">
-              <span className="h-3 w-5 bg-emerald-500 rounded border shadow-sm shrink-0" />
-              <span>Shima (予定)</span>
-            </div>
-            <div className="flex items-center gap-1.5 mr-2">
-              <span className="h-3 w-5 bg-emerald-200 dark:bg-emerald-950/40 rounded border shrink-0" />
-              <span>Shima (予定外)</span>
-            </div>
-            <div className="flex items-center gap-1.5 mr-2">
-              <span className="h-3 w-5 bg-amber-500 rounded border shadow-sm shrink-0" />
-              <span>Toshi (予定)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-5 bg-amber-200 dark:bg-amber-950/40 rounded border shrink-0" />
-              <span>Toshi (予定外)</span>
+
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              {selectedDate !== heatmapBaseDate && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setHeatmapBaseDate(selectedDate)}
+                  className="h-7 px-2.5 text-[11px]"
+                >
+                  編集中の日付 ({selectedDate}) に合わせる
+                </Button>
+              )}
+              <span className="font-mono text-[10px] bg-muted/60 px-2 py-1 rounded-md border border-border/50">
+                期間: {statsDateRange[0]} 〜 {statsDateRange[statsDateRange.length - 1]}
+              </span>
             </div>
           </div>
         </CardHeader>
@@ -870,12 +983,28 @@ export default function Schedules() {
                   {/* ヘッダー1行目：選手、日付相対、トレーナー名、合計 */}
                   <tr className="bg-muted/40 border-b border-border/80 text-muted-foreground font-bold text-center">
                     <th className="py-2.5 px-3 text-left w-36 bg-background/50 border-r shrink-0">選手</th>
-                    {statsDateRange.map((_, idx) => {
+                    {statsDateRange.map((dateStr, idx) => {
                       const rel = idx - 10;
-                      const label = rel === 0 ? "今日" : rel > 0 ? `+${rel}` : `${rel}`;
+                      const isBase = rel === 0;
+                      const isToday = dateStr === todayStr;
+                      const label = isBase ? (isToday ? "今日" : "基準") : rel > 0 ? `+${rel}` : `${rel}`;
+                      const [, m, d] = dateStr.split("-").map(Number);
+                      const shortDate = m && d ? `${m}/${d}` : dateStr;
                       return (
-                        <th key={idx} className="p-1.5 text-center min-w-[32px] font-mono border-r text-[9px]">
-                          {label}
+                        <th
+                          key={idx}
+                          onClick={() => setHeatmapBaseDate(dateStr)}
+                          title={`${dateStr}（クリックでこの日を基準日に設定）`}
+                          className={`py-1.5 px-1 text-center min-w-[36px] font-mono border-r text-[9px] cursor-pointer transition-colors ${
+                            isBase
+                              ? "bg-primary/15 text-primary font-extrabold"
+                              : isToday
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold hover:bg-amber-500/20"
+                              : "hover:bg-muted/80"
+                          }`}
+                        >
+                          <div className="leading-tight">{label}</div>
+                          <div className="text-[8px] opacity-80 leading-tight mt-0.5">{shortDate}</div>
                         </th>
                       );
                     })}
