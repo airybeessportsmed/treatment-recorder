@@ -1,301 +1,301 @@
 [
   {
-    "id": "update-38b3625",
-    "date": "2026-06-22",
-    "version": "commit-38b3625",
-    "title": "perf: getDuplicateProgramGroups を一括取得するように最適化し、コネクション詰まりを解消",
+    "id": "update-0117b14",
+    "date": "2026-11-12",
+    "version": "commit-0117b14",
+    "title": "Update Schedules.tsx",
     "details": [
-      "perf: getDuplicateProgramGroups を一括取得するように最適化し、コネクション詰まりを解消"
+      "Update Schedules.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-6ad41e9",
-    "date": "2026-06-22",
-    "version": "commit-6ad41e9",
-    "title": "feat: 既存プログラムの重複を検知・整理（一括削除）できる機能（案A）を実装",
+    "id": "update-8895b3d",
+    "date": "2026-08-24",
+    "version": "commit-8895b3d",
+    "title": "Update DashboardLayout.tsx",
     "details": [
-      "feat: 既存プログラムの重複を検知・整理（一括削除）できる機能（案A）を実装"
+      "Update DashboardLayout.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-4a7a751",
-    "date": "2026-06-22",
-    "version": "commit-4a7a751",
-    "title": "feat: インポート時の選手未マッチング状態でも背番号と名前をキーに重複チェックを実行できるように修正",
+    "id": "update-07c44fa",
+    "date": "2026-08-24",
+    "version": "commit-07c44fa",
+    "title": "Update routers.ts",
     "details": [
-      "feat: インポート時の選手未マッチング状態でも背番号と名前をキーに重複チェックを実行できるように修正"
+      "Update routers.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-87eea95",
-    "date": "2026-06-22",
-    "version": "commit-87eea95",
-    "title": "feat: OCR記録読み取り画面（PhotoOCR）の実施日の初期値をプログラム日付と同じになるよう設定",
+    "id": "update-e3696e1",
+    "date": "2026-08-24",
+    "version": "commit-e3696e1",
+    "title": "Update routers.ts",
     "details": [
-      "feat: OCR記録読み取り画面（PhotoOCR）の実施日の初期値をプログラム日付と同じになるよう設定"
+      "Update routers.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-a540381",
-    "date": "2026-06-22",
-    "version": "commit-a540381",
-    "title": "fix: 種目（メニュー）が0件の既存重複プログラムを自動クリーンアップ（削除）する処理を追加",
+    "id": "update-a7804a4",
+    "date": "2026-07-14",
+    "version": "commit-a7804a4",
+    "title": "Update Home.tsx",
     "details": [
-      "fix: 種目（メニュー）が0件の既存重複プログラムを自動クリーンアップ（削除）する処理を追加"
+      "Update Home.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-a9c776f",
-    "date": "2026-06-22",
-    "version": "commit-a9c776f",
-    "title": "feat: プログラムインポート時の重複検知・上書き・スキップ機能の実装",
+    "id": "update-9018972",
+    "date": "2026-07-14",
+    "version": "commit-9018972",
+    "title": "OSTRC読込み修正",
     "details": [
-      "feat: プログラムインポート時の重複検知・上書き・スキップ機能の実装"
+      "OSTRC読込み修正"
     ],
     "isImportant": false
   },
   {
-    "id": "update-351d79d",
-    "date": "2026-06-22",
-    "version": "commit-351d79d",
-    "title": "feat: プログラム一覧に日付・名前・ステータスでのソートおよびステータスフィルターを追加",
+    "id": "update-230fdaa",
+    "date": "2026-07-14",
+    "version": "commit-230fdaa",
+    "title": "Update Home.tsx",
     "details": [
-      "feat: プログラム一覧に日付・名前・ステータスでのソートおよびステータスフィルターを追加"
+      "Update Home.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-540d56b",
-    "date": "2026-06-22",
-    "version": "commit-540d56b",
-    "title": "fix: Render本番環境でのポートの不一致による503エラーを回避",
+    "id": "update-fdc6449",
+    "date": "2026-07-14",
+    "version": "commit-fdc6449",
+    "title": "OSTRCカード表示変更",
     "details": [
-      "fix: Render本番環境でのポートの不一致による503エラーを回避"
+      "OSTRCカード表示変更"
     ],
     "isImportant": false
   },
   {
-    "id": "update-39b4506",
-    "date": "2026-06-22",
-    "version": "commit-39b4506",
-    "title": "fix: Wouterルートの評価順序を修正しインポート画面の遷移バグを解消",
+    "id": "update-bbd4325",
+    "date": "2026-07-14",
+    "version": "commit-bbd4325",
+    "title": "OSTRC読込みローマ字",
     "details": [
-      "fix: Wouterルートの評価順序を修正しインポート画面の遷移バグを解消"
+      "OSTRC読込みローマ字"
     ],
     "isImportant": false
   },
   {
-    "id": "update-1f7e088",
-    "date": "2026-06-22",
-    "version": "commit-1f7e088",
-    "title": "feat(training): add bulk program selection and deletion feature",
+    "id": "update-973cfcc",
+    "date": "2026-07-14",
+    "version": "commit-973cfcc",
+    "title": "Update Home.tsx",
     "details": [
-      "feat(training): add bulk program selection and deletion feature"
+      "Update Home.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-3d2498a",
-    "date": "2026-06-22",
-    "version": "commit-3d2498a",
-    "title": "feat(training): refactor program list to table layout and add OCR/records status badges",
+    "id": "update-90ec0aa",
+    "date": "2026-07-14",
+    "version": "commit-90ec0aa",
+    "title": "Update Home.tsx",
     "details": [
-      "feat(training): refactor program list to table layout and add OCR/records status badges"
+      "Update Home.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-9aed7a6",
-    "date": "2026-06-22",
-    "version": "commit-9aed7a6",
-    "title": "fix(training): fix residual /ocr navigation path in ProgramDetail",
+    "id": "update-092d697",
+    "date": "2026-07-14",
+    "version": "commit-092d697",
+    "title": "Update Home.tsx",
     "details": [
-      "fix(training): fix residual /ocr navigation path in ProgramDetail"
+      "Update Home.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-6c434b0",
-    "date": "2026-06-22",
-    "version": "commit-6c434b0",
-    "title": "fix(training): fix 404 navigation errors by prefixing Wouter paths and restore basic auth",
+    "id": "update-9af5ffc",
+    "date": "2026-07-14",
+    "version": "commit-9af5ffc",
+    "title": "Update Home.tsx",
     "details": [
-      "fix(training): fix 404 navigation errors by prefixing Wouter paths and restore basic auth"
+      "Update Home.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-f8fcce7",
-    "date": "2026-06-22",
-    "version": "commit-f8fcce7",
-    "title": "Update updates.json",
+    "id": "update-dd5e42e",
+    "date": "2026-07-14",
+    "version": "commit-dd5e42e",
+    "title": "OSTRC 読込み修正",
     "details": [
-      "Update updates.json"
+      "OSTRC 読込み修正"
     ],
     "isImportant": false
   },
   {
-    "id": "update-bca7fb4",
-    "date": "2026-06-22",
-    "version": "commit-bca7fb4",
-    "title": "debug: add info to NotFound page",
+    "id": "update-ffa8174",
+    "date": "2026-07-14",
+    "version": "commit-ffa8174",
+    "title": "OSTRC",
     "details": [
-      "debug: add info to NotFound page"
+      "OSTRC"
     ],
     "isImportant": false
   },
   {
-    "id": "update-3aa6a92",
-    "date": "2026-06-22",
-    "version": "commit-3aa6a92",
-    "title": "debug: temp bypass basic auth",
+    "id": "update-ccb1b4b",
+    "date": "2026-07-11",
+    "version": "commit-ccb1b4b",
+    "title": "OCR編集",
     "details": [
-      "debug: temp bypass basic auth"
+      "OCR編集"
     ],
     "isImportant": false
   },
   {
-    "id": "update-fcb4208",
-    "date": "2026-06-22",
-    "version": "commit-fcb4208",
-    "title": "debug: add temp /debug-git-hash and /debug-updates",
+    "id": "update-4341dba",
+    "date": "2026-06-25",
+    "version": "commit-4341dba",
+    "title": "Update index.css",
     "details": [
-      "debug: add temp /debug-git-hash and /debug-updates"
+      "Update index.css"
     ],
     "isImportant": false
   },
   {
-    "id": "update-1a48250",
-    "date": "2026-06-20",
-    "version": "commit-1a48250",
-    "title": "clean: remove temporary debug endpoints",
+    "id": "update-4672bfd",
+    "date": "2026-06-25",
+    "version": "commit-4672bfd",
+    "title": "Update treatment.test.ts",
     "details": [
-      "clean: remove temporary debug endpoints"
+      "Update treatment.test.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-6048cd8",
-    "date": "2026-06-20",
-    "version": "commit-6048cd8",
-    "title": "Create list_new_db_athletes.ts",
+    "id": "update-d262ae3",
+    "date": "2026-06-25",
+    "version": "commit-d262ae3",
+    "title": "Update routers.ts",
     "details": [
-      "Create list_new_db_athletes.ts"
+      "Update routers.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-14f268a",
-    "date": "2026-06-20",
-    "version": "commit-14f268a",
-    "title": "Create list_old_players.ts",
+    "id": "update-c5f5e2f",
+    "date": "2026-06-25",
+    "version": "commit-c5f5e2f",
+    "title": "Update db.ts",
     "details": [
-      "Create list_old_players.ts"
+      "Update db.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-ed96862",
-    "date": "2026-06-20",
-    "version": "commit-ed96862",
-    "title": "Create merge_duplicate_players.ts",
+    "id": "update-b2e4a22",
+    "date": "2026-06-25",
+    "version": "commit-b2e4a22",
+    "title": "Create list_users.ts",
     "details": [
-      "Create merge_duplicate_players.ts"
+      "Create list_users.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-f3f2711",
-    "date": "2026-06-20",
-    "version": "commit-f3f2711",
-    "title": "Create check_prod_api.ts",
+    "id": "update-e6d8d4f",
+    "date": "2026-06-25",
+    "version": "commit-e6d8d4f",
+    "title": "Create list_record_owners.ts",
     "details": [
-      "Create check_prod_api.ts"
+      "Create list_record_owners.ts"
     ],
     "isImportant": false
   },
   {
-    "id": "update-0599f64",
-    "date": "2026-06-20",
-    "version": "commit-0599f64",
-    "title": "Create check_data_for_60001.ts",
+    "id": "update-3a7509b",
+    "date": "2026-06-25",
+    "version": "commit-3a7509b",
+    "title": "Update UserApproval.tsx",
     "details": [
-      "Create check_data_for_60001.ts"
+      "Update UserApproval.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-74548d3",
-    "date": "2026-06-20",
-    "version": "commit-74548d3",
-    "title": "debug: import db_training in index.ts",
+    "id": "update-27cf8ea",
+    "date": "2026-06-24",
+    "version": "commit-27cf8ea",
+    "title": "Update UserApproval.tsx",
     "details": [
-      "debug: import db_training in index.ts"
+      "Update UserApproval.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-5a5672b",
-    "date": "2026-06-20",
-    "version": "commit-5a5672b",
-    "title": "debug: add temp /debug-athletes endpoint",
+    "id": "update-fc82342",
+    "date": "2026-06-24",
+    "version": "commit-fc82342",
+    "title": "Update Programs.tsx",
     "details": [
-      "debug: add temp /debug-athletes endpoint"
+      "Update Programs.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-fc49ce7",
-    "date": "2026-06-20",
-    "version": "commit-fc49ce7",
-    "title": "debug: add temp /debug-db endpoint",
+    "id": "update-806d1a0",
+    "date": "2026-06-24",
+    "version": "commit-806d1a0",
+    "title": "Update ProgramImportConfirm.tsx",
     "details": [
-      "debug: add temp /debug-db endpoint"
+      "Update ProgramImportConfirm.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-548bdae",
-    "date": "2026-06-20",
-    "version": "commit-548bdae",
-    "title": "Create list_players.ts",
+    "id": "update-71a31c1",
+    "date": "2026-06-24",
+    "version": "commit-71a31c1",
+    "title": "Update ProgramImport.tsx",
     "details": [
-      "Create list_players.ts"
+      "Update ProgramImport.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-19c5185",
-    "date": "2026-06-20",
-    "version": "commit-19c5185",
-    "title": "fix: 過去の日本語アップデート履歴を自動生成スクリプトにマージ統合",
+    "id": "update-ed9e38e",
+    "date": "2026-06-24",
+    "version": "commit-ed9e38e",
+    "title": "Update ProgramDetail.tsx",
     "details": [
-      "fix: 過去の日本語アップデート履歴を自動生成スクリプトにマージ統合"
+      "Update ProgramDetail.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-52a7035",
-    "date": "2026-06-20",
-    "version": "commit-52a7035",
-    "title": "feat: 自動アップデート情報生成 ＆ 共通バナーと既読機能の実装",
+    "id": "update-4456c77",
+    "date": "2026-06-24",
+    "version": "commit-4456c77",
+    "title": "Update ProgramCreate.tsx",
     "details": [
-      "feat: 自動アップデート情報生成 ＆ 共通バナーと既読機能の実装"
+      "Update ProgramCreate.tsx"
     ],
     "isImportant": false
   },
   {
-    "id": "update-fc23d00",
-    "date": "2026-06-20",
-    "version": "commit-fc23d00",
-    "title": "Update migrate_training_data.ts",
+    "id": "update-ceb9a92",
+    "date": "2026-06-24",
+    "version": "commit-ceb9a92",
+    "title": "Update routers.ts",
     "details": [
-      "Update migrate_training_data.ts"
+      "Update routers.ts"
     ],
     "isImportant": false
   },
