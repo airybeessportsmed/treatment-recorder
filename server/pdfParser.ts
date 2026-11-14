@@ -42,45 +42,125 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   return result.text;
 }
 
+function cleanExtractedName(raw: string): string {
+  return raw
+    .replace(/Strength\s*Training\s*Program/gi, "")
+    .replace(/【\s*(氏名|選手名|name|player|athlete)\s*】/gi, "")
+    .replace(/\[\s*(name|player|athlete)\s*\]/gi, "")
+    .replace(/^(氏名|選手名|name|player|athlete)\s*[:：]?\s*/i, "")
+    .trim();
+}
+
+function isMetadataOrHeaderLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return true;
+  if (/^(strength\s*training\s*program|preparation|core(\s*training)?|power|lower\s*body|upper\s*body|specific|set|sets|種目|回数|負荷|注意点|total)$/i.test(trimmed)) {
+    return true;
+  }
+  if (/^(【.*】|phase|期間|期分け|目的|体重|date|period|goal)/i.test(trimmed)) {
+    return true;
+  }
+  if (/^\d+(\.\d+)?\s*(kg|cm|%)?$/i.test(normalizeFullWidthNumber(trimmed))) {
+    return true;
+  }
+  if (/^\d{4}[\/\-年.]\d{1,2}[\/\-月.]\d{1,2}/.test(normalizeFullWidthNumber(trimmed))) {
+    return true;
+  }
+  const posKeywords = [
+    "ヒッター",
+    "セッター",
+    "リベロ",
+    "ミドル",
+    "オポジット",
+    "アウト",
+    "ブロッカー",
+    "Outside",
+    "Middle",
+    "Opposite",
+    "Setter",
+    "Libero",
+  ];
+  if (posKeywords.some((k) => trimmed.toLowerCase().includes(k.toLowerCase()))) {
+    return true;
+  }
+  return false;
+}
+
 function extractAthleteInfo(lines: string[]): {
   athleteName: string;
   athleteNumber?: number;
   position?: string;
+  phase?: string;
+  date?: string;
+  periodCategory?: string;
+  goal?: string;
 } {
   let athleteName = "";
   let athleteNumber: number | undefined;
   let position: string | undefined;
+  let phase: string | undefined;
+  let date: string | undefined;
+  let periodCategory: string | undefined;
+  let goal: string | undefined;
 
-  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+  const headerLimit = Math.min(lines.length, 15);
+
+  for (let i = 0; i < headerLimit; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // 選手名と背番号を抽出（「＃」で分割）
-    if (line.includes("＃")) {
-      const parts = line.split("＃");
-      if (parts.length === 2) {
-        const namePart = parts[0].trim();
-        const numberPart = parts[1].trim();
-
-        const nameParts = namePart.split(/\s+/);
-        if (nameParts.length >= 2) {
-          athleteName = nameParts.join(" ");
-        }
-
-        const num = parseInt(normalizeFullWidthNumber(numberPart));
-        if (!isNaN(num)) {
-          athleteNumber = num;
+    // 1. 【氏名】や【Name】ラベルがある場合
+    if (/^(【\s*(氏名|選手名|name)\s*】|\[\s*name\s*\]|(氏名|選手名)\s*[:：])/i.test(line)) {
+      const withoutHash = line.split(/[＃#]/)[0];
+      const candidate = cleanExtractedName(withoutHash);
+      if (candidate) {
+        athleteName = candidate.split(/\s+/).join(" ");
+      } else if (i + 1 < headerLimit) {
+        const nextCandidate = cleanExtractedName(lines[i + 1].split(/[＃#]/)[0]);
+        if (nextCandidate && !isMetadataOrHeaderLine(nextCandidate)) {
+          athleteName = nextCandidate.split(/\s+/).join(" ");
         }
       }
     }
 
-    // ポジション情報を抽出（改行で分割されている場合）
+    // 2. 選手名と背番号を抽出（「＃」または「#」で分割、1単語の外国人選手名 Amand / Thea 等にも対応）
+    if (line.includes("＃") || line.includes("#")) {
+      const parts = line.split(/[＃#]/);
+      if (parts.length >= 2) {
+        const namePart = cleanExtractedName(parts[0]);
+        const numberPart = parts.slice(1).join("").trim();
+
+        if (namePart.length >= 1) {
+          const nameParts = namePart.split(/\s+/).filter(Boolean);
+          athleteName = nameParts.join(" ");
+        } else if (!athleteName) {
+          // 「＃12」が単独行にある場合、直前の非空行から選手名を探す
+          for (let prev = i - 1; prev >= 0; prev--) {
+            const prevLine = cleanExtractedName(lines[prev]);
+            if (prevLine && !isMetadataOrHeaderLine(prevLine)) {
+              athleteName = prevLine.split(/\s+/).join(" ");
+              break;
+            }
+          }
+        }
+
+        const numMatch = normalizeFullWidthNumber(numberPart).match(/^(\d+)/);
+        if (numMatch) {
+          const num = parseInt(numMatch[1], 10);
+          if (!isNaN(num)) {
+            athleteNumber = num;
+          }
+        }
+      }
+    }
+
+    // 3. ポジション情報を抽出
     if (
-      athleteName &&
       !position &&
       !line.includes("＃") &&
+      !line.includes("#") &&
       !line.includes("kg") &&
-      line.length > 2 &&
+      line.length >= 2 &&
       line.length < 30
     ) {
       const keywords = [
@@ -90,14 +170,50 @@ function extractAthleteInfo(lines: string[]): {
         "ミドル",
         "オポジット",
         "アウト",
+        "Outside",
+        "Middle",
+        "Opposite",
+        "Setter",
+        "Libero",
       ];
-      if (keywords.some((k) => line.includes(k))) {
+      if (keywords.some((k) => line.toLowerCase().includes(k.toLowerCase()))) {
         position = line;
+      }
+    }
+
+    // 4. PHASE / 期間 / 期分け / 目的 の抽出（PDF内に含まれる場合）
+    if (line.toUpperCase().includes("PHASE") && !phase) {
+      const cleaned = line.replace(/【?\s*PHASE\s*】?[:：]?/i, "").trim();
+      if (cleaned) phase = cleaned;
+    }
+    if (line.includes("期間") && !date) {
+      const cleaned = normalizeFullWidthNumber(line.replace(/【?\s*期間\s*】?[:：]?/, "").trim());
+      const dateMatch = cleaned.match(/(\d{4})[\/\-年.](\d{1,2})[\/\-月.](\d{1,2})/);
+      if (dateMatch) {
+        date = `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`;
+      }
+    }
+    if (line.includes("期分け") && !periodCategory) {
+      const cleaned = line.replace(/【?\s*期分け\s*】?[:：]?/, "").trim();
+      if (cleaned) periodCategory = cleaned;
+    }
+  }
+
+  // 5. 背番号（「＃」）も【氏名】ラベルも無いページの場合、先頭付近の独立行から選手名を補完
+  if (!athleteName) {
+    for (let i = 0; i < Math.min(lines.length, 8); i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      if (/^(preparation|core|種目|set)$/i.test(line)) break;
+      const cleaned = cleanExtractedName(line);
+      if (cleaned && cleaned.length >= 2 && cleaned.length <= 30 && !isMetadataOrHeaderLine(cleaned)) {
+        athleteName = cleaned.split(/\s+/).join(" ");
+        break;
       }
     }
   }
 
-  return { athleteName, athleteNumber, position };
+  return { athleteName, athleteNumber, position, phase, date, periodCategory, goal };
 }
 
 function extractSections(lines: string[]): ParsedSection[] {
@@ -110,17 +226,26 @@ function extractSections(lines: string[]): ParsedSection[] {
     "Specific",
   ];
 
+  function normalizeSectionHeader(line: string): string | null {
+    const trimmed = line.trim();
+    if (SECTION_KEYWORDS.includes(trimmed)) return trimmed;
+    if (/^core$/i.test(trimmed)) return "Core Training";
+    const found = SECTION_KEYWORDS.find((k) => k.toLowerCase() === trimmed.toLowerCase());
+    return found || null;
+  }
+
   const sections: ParsedSection[] = [];
   const exercisesBySection: { [key: string]: string[] } = {};
 
   // 各セクションの行を集める
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+    const matchedSection = normalizeSectionHeader(line);
 
     // セクション名を検出
-    if (SECTION_KEYWORDS.includes(line)) {
-      if (!exercisesBySection[line]) {
-        exercisesBySection[line] = [];
+    if (matchedSection) {
+      if (!exercisesBySection[matchedSection]) {
+        exercisesBySection[matchedSection] = [];
       }
 
       // このセクションの次の行から、次のセクションまでを収集
@@ -130,8 +255,8 @@ function extractSections(lines: string[]): ParsedSection[] {
 
         // 次のセクション、または終了条件に達したら終了
         if (
-          SECTION_KEYWORDS.includes(nextLine) ||
-          nextLine.includes("TOTAL") ||
+          normalizeSectionHeader(nextLine) !== null ||
+          nextLine.toUpperCase().includes("TOTAL") ||
           nextLine.startsWith("【")
         ) {
           break;
@@ -139,7 +264,7 @@ function extractSections(lines: string[]): ParsedSection[] {
 
         // 空行以外を追加
         if (nextLine && !nextLine.includes("SET") && !nextLine.includes("回数")) {
-          exercisesBySection[line].push(nextLine);
+          exercisesBySection[matchedSection].push(nextLine);
         }
 
         j++;
@@ -227,6 +352,10 @@ export async function parseProgramsFromPDF(
       athleteName: athleteInfo.athleteName,
       athleteNumber: athleteInfo.athleteNumber,
       position: athleteInfo.position,
+      phase: athleteInfo.phase,
+      date: athleteInfo.date,
+      periodCategory: athleteInfo.periodCategory,
+      goal: athleteInfo.goal,
       sections: sections,
     });
   }

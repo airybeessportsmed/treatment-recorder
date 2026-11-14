@@ -1,5 +1,15 @@
 [
   {
+    "id": "update-8c0538d",
+    "date": "2026-11-12",
+    "version": "commit-8c0538d",
+    "title": "Update updates.json",
+    "details": [
+      "Update updates.json"
+    ],
+    "isImportant": false
+  },
+  {
     "id": "update-0117b14",
     "date": "2026-11-12",
     "version": "commit-0117b14",
@@ -286,16 +296,6 @@
     "title": "Update ProgramCreate.tsx",
     "details": [
       "Update ProgramCreate.tsx"
-    ],
-    "isImportant": false
-  },
-  {
-    "id": "update-ceb9a92",
-    "date": "2026-06-24",
-    "version": "commit-ceb9a92",
-    "title": "Update routers.ts",
-    "details": [
-      "Update routers.ts"
     ],
     "isImportant": false
   },

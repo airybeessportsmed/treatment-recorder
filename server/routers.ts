@@ -259,11 +259,32 @@ const programsRouter = router({
         athlete = await db_training.getAthleteByNumber(input.athleteNumber);
       }
 
-      // 2. 背番号でヒットしない、または背番号がない場合は名前で検索（スペースなどを排除して正規化比較）
+      // 2. 背番号でヒットしない、または背番号がない場合は名前で検索（スペース・異体字・ローマ字/部分一致対応）
       if (!athlete) {
         const allAthletes = await db_training.getAthletes();
-        const normalize = (s: string) => s.replace(/[\s　・]/g, "").toLowerCase();
-        athlete = allAthletes.find(a => normalize(a.name) === normalize(input.athleteName));
+        const normalize = (s: string) =>
+          s
+            .replace(/[\s　・._\-()（）]/g, "")
+            .replace(/[﨑𥔎]/g, "崎")
+            .replace(/[髙]/g, "高")
+            .replace(/[𠮷]/g, "吉")
+            .replace(/[澤]/g, "沢")
+            .replace(/[嶋]/g, "島")
+            .replace(/[眞]/g, "真")
+            .replace(/[廣]/g, "広")
+            .replace(/[邊邉]/g, "辺")
+            .replace(/[齋齋齊]/g, "斉")
+            .toLowerCase();
+        const targetNorm = normalize(input.athleteName);
+        athlete =
+          allAthletes.find(a => normalize(a.name) === targetNorm) ||
+          matchPlayerByRomaji(input.athleteName, allAthletes) ||
+          (targetNorm.length >= 3
+            ? allAthletes.find(a => {
+                const aNorm = normalize(a.name);
+                return aNorm.length >= 2 && (aNorm.includes(targetNorm) || targetNorm.includes(aNorm));
+              })
+            : undefined);
       }
 
       // 選手が見つからなければ重複判定は行えない
@@ -868,7 +889,7 @@ function matchPlayerByRomaji(romajiName: string, playersList: any[]) {
     "山下晴奈": ["yamashitaharuna", "harunayamashita", "yamashitahaluna", "halunayamashita"],
     "川畑 遥奈": ["kawabataharuna", "harunakawabata", "kawabatahaluna", "halunakawabata"],
     "福本 眸": ["fukumotohitomi", "hitomifukumoto", "fukumotohitomy"],
-    "Rosamaria Montibeller": ["rosamariamontibeller", "rosamaria", "montibeller"],
+    "Rosamaria Montibeller": ["rosamariamontibeller", "rosamaria", "montibeller", "ロザマリア"],
     "中元 南": ["nakamotominami", "minaminakamoto"],
     "石倉 沙姫": ["ishikurasaki", "sakiishikura"],
     "山崎 のの花": ["yamazakinonoka", "nonokayamazaki"],
@@ -880,18 +901,31 @@ function matchPlayerByRomaji(romajiName: string, playersList: any[]) {
     "大﨑 琴未": ["osakikotomi", "kotomiosaki", "ohsakikotomi", "kotomiohsaki"],
     "瀬戸 杏華": ["setokyoka", "kyokaseto"],
     "イェー モン ミャ": ["ayemonmya", "yemonmya", "mya", "ayemon"],
+    "Amand": ["amand", "amanda", "アマンダ", "アマンド"],
+    "Amanda": ["amand", "amanda", "アマンダ", "アマンド"],
+    "アマンダ": ["amand", "amanda", "アマンダ", "アマンド"],
+    "Thea": ["thea", "テア", "ティア", "シア"],
+    "テア": ["thea", "テア", "ティア", "シア"],
   };
 
   for (const [jpName, patterns] of Object.entries(romajiMap)) {
     if (patterns.includes(cleanRomaji)) {
-      const found = playersList.find(p => p.name.replace(/\s/g, "") === jpName.replace(/\s/g, ""));
+      const targetClean = jpName.toLowerCase().replace(/[\s　・._-]/g, "");
+      const found = playersList.find(p => {
+        const pClean = p.name.toLowerCase().replace(/[\s　・._-]/g, "");
+        return pClean === targetClean || pClean.includes(targetClean) || targetClean.includes(pClean);
+      });
       if (found) return found;
     }
   }
 
   for (const [jpName, patterns] of Object.entries(romajiMap)) {
     if (patterns.some(pat => cleanRomaji.includes(pat) || pat.includes(cleanRomaji))) {
-      const found = playersList.find(p => p.name.replace(/\s/g, "") === jpName.replace(/\s/g, ""));
+      const targetClean = jpName.toLowerCase().replace(/[\s　・._-]/g, "");
+      const found = playersList.find(p => {
+        const pClean = p.name.toLowerCase().replace(/[\s　・._-]/g, "");
+        return pClean === targetClean || pClean.includes(targetClean) || targetClean.includes(pClean);
+      });
       if (found) return found;
     }
   }
